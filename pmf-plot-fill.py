@@ -7,8 +7,16 @@ from matplotlib.font_manager import FontProperties
 import argparse
 from subprocess import Popen, PIPE
 import subprocess, shlex
+from time import gmtime, strftime
 
 
+def get_file(file):
+	try:
+		file_out=np.genfromtxt(file, autostrip=True, comments='@',skip_header=13)
+	except:
+		sys.exit("Cannot find pull file")
+	print('\ngetting file from: '+file)
+	return file_out
 def ask_direction():
 	order=['+','-', '']
 	while True:
@@ -24,27 +32,27 @@ def ask_direction():
 def ask_integer(question):
 	while True:
 		try:
-			offset = int(input("\n"+question))
+			integer = int(input("\n"+question))
 			break
 		except KeyboardInterrupt:
 			sys.exit('\nInterrupted')
 		except:
 			print("Oops!  That was not a number.  Try again...")
-	return offset
+	return integer
 def ask_yes_no(question):
 	additional=False
 	while True:
 		q_result = input("\n"+question)
 		try:
-			if q_result in ['yes', 'YES', 'Yes', 'y','Y']:
+			if q_result.lower() in ['yes','y']:
 				additional=True
 				break
-			elif q_result in ['N','n', 'No','no','NO']:
+			elif q_result.lower() in ['n', 'no']:
 				break
+			else:
+				print("\nplease enter yes or no.")
 		except KeyboardInterrupt:
 			sys.exit('\nInterrupted')
-		except:
-			print("\nplease enter yes or no.")
 	return additional
 def filename(location):
 	print('\ngetting file names from pull directory')
@@ -75,7 +83,7 @@ def gromacs(cmd):
 	err, out = output.communicate()
 	exitcode = output.returncode
 	out=out.decode("utf-8")
-	checks = open('gromacs_outputs', 'a')
+	checks = open('gromacs_outputs'+'_'+timeStamp, 'a')
 	checks.write(out)
 def final(cmd):
 	print('\ncollecting final reaction coordinate')
@@ -84,6 +92,16 @@ def final(cmd):
 	err=err.decode("utf-8")
 	err.splitlines()
 	return err.splitlines()
+def create_additional(additional, initial_offset, offset, direction):
+	if additional ==True:
+		parameters=['md.mdp', 'output directory', 'topology file', 'index file']
+		arguments=[args.mdp, args.o, args.p, args.n]
+		if None in arguments:
+			for i in range(len(parameters)):
+				print('-'+parameters[i]+'\t'+str(arguments[i]))
+		else:
+			make_umbrellas(initial_offset, offset, direction)
+	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' gromacs_outputs_'+timeStamp+' | awk \'{print $4}\'')
 def setup():
 	print('\ninitialising setup')
 	react_coord_proposed, react_coord_init=[],[]
@@ -94,16 +112,8 @@ def setup():
 	for i in range(len(proposed)):
 		react_coord_proposed.append(proposed[i])
 		react_coord_init.append(actual[i])
-	additional = ask_yes_no('Do you wish to create umbrella tpr files (yes/no):  ')
-	if additional ==True:
-		parameters=['md.mdp', 'output directory', 'topology file', 'index file']
-		arguments=[args.mdp, args.o, args.p, args.n]
-		if None in arguments:
-			for i in range(len(parameters)):
-				print('-'+parameters[i]+'\t'+str(arguments[i]))
-		else:
-			make_umbrellas(initial_offset, offset, direction)
-	react_coord_final=final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' gromacs_outputs | awk \'{print $4}\'')
+	additional = ask_yes_no('Do you wish to create umbrella tpr files (yes/no):  ')  
+	react_coord_final=create_additional(additional, initial_offset, offset, direction)
 	return react_coord_final, react_coord_proposed, react_coord_init, additional, direction, initial_offset
 def get_histograms():
 	print('\ngetting histograms from: '+args.hist)
@@ -114,28 +124,22 @@ def get_histograms():
 
 	histt, histograms=histo[:,0],histo[:,1:-1] # simplify variables
 	hist_sum=(histograms.sum(axis=1))/np.max(histograms.sum(axis=1))
+	hist_rel=histograms/np.max(histograms)#.sum(axis=1)
 	overlap_cutoff=np.mean(np.max(histo[:,1:-1]))*0.1
 	overlap=[]
 	for i in range(len(histo[0:,1:-1])):
 		overlap.append(np.count_nonzero(histo[0:,1:-1][i] > overlap_cutoff))
 
-	return histt, histograms,hist_sum, overlap_cutoff, overlap
+	return histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel
 def get_conformation(start, end, interval, offset, direction): 
 	print('\nsetting up umbrella window coordinates')
 	pull_file, xtc_file, tpr_file=filename(args.pull)
 	collective_variable = str(input("\nDo you wish to use a different pull file (press enter to use default):  "))
 	if len(collective_variable)>0:
-		try:
-			pull=np.genfromtxt(collective_variable, autostrip=True, comments='@',skip_header=13)
-		except:
-			sys.exit("Cannot find pull file")		
+		pull=get_file(collective_variable)
 	else:
-		try:
-			pull=np.genfromtxt(str(args.pull)+pull_file, autostrip=True, comments='@',skip_header=13) # read in pull file
-			print("\ndefault pull file used")	
-		except:
-			sys.exit("Cannot find pullf file")
-		
+		pull=get_file(str(args.pull)+pull_file)
+		print("\ndefault pull file used")	
 	pulltime, pulldist=pull[:,0],pull[:,1]
 	frametime, distance, dist =[], [], []
 	frame=0
@@ -213,15 +217,7 @@ def fill_gaps():
 						initial=i
 						start=colvar
 	additional = ask_yes_no('Do you wish to create umbrella tpr files (yes/no):  ')
-	if additional ==True:
-		parameters=['md.mdp', 'output directory', 'topology file', 'index file']
-		arguments=[args.mdp, args.o, args.p, args.n]
-		if None in arguments:
-			for i in range(len(parameters)):
-				print('-'+parameters[i]+'\t'+str(arguments[i]))
-		else:
-			make_umbrellas(initial_offset, offset, direction)
-	react_coord_final=final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' gromacs_outputs | awk \'{print $4}\'')
+	react_coord_final=create_additional(additional, initial_offset, offset, direction)
 	return react_coord_final, react_coord_proposed, react_coord_init, additional, direction, initial_offset
 def make_umbrellas(offset_initial, offset, direction):
 	print('\nmaking umbrellas windows')
@@ -236,6 +232,12 @@ def make_umbrellas(offset_initial, offset, direction):
 				gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
 		if direct==True:
 			gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
+def set_to_zero(energy):
+	if energy[-1] < 0:
+		energy = energy+(0-energy[-1])
+	else:
+		energy = energy-energy[-1]	
+	return energy
 def plot_pmf():
 	print('\nplotting PMF data')
 	# Fonts
@@ -256,49 +258,49 @@ def plot_pmf():
 	font2.set_weight('normal')
 	rcParams['mathtext.default'] = 'regular'
 
-	histt, histograms,hist_sum, overlap_cutoff, overlap=get_histograms()
-
-	## read in pmf landscape
-	try:
-		bsres=np.genfromtxt(args.pmf, autostrip=True, comments='@',skip_header=13) # read in pmf plot
-	except:
-		sys.exit("Cannot find bootstrap file")
-
-	pmfx, pmfl,pmfe=bsres[:,0],bsres[:,1],bsres[:,2] # simplify variables
+	### histogram start###
+	histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel=get_histograms()
 	arb_cutoff=np.mean(hist_sum)*0.25
+	### histogram end###
+	### pmf start ###
+	pmf_current=get_file(args.pmf)
 
-	if np.isfinite(pmfl).any()==False:
+	if np.isfinite(pmf_current[:,1]).any()==False:
 		sys.exit('Your data is NaN, you most likely have a empty histogram')
+	pmf_current[:,1]=set_to_zero(pmf_current[:,1])
 
-	#setting to bulk (0)
-	if pmfl[-1] < 0:
-		pmfl = pmfl+(0-pmfl[-1])
-	else:
-		pmfl = pmfl-pmfl[-1]
+	other_pmf = ask_yes_no('Do you wish to plot another pmf:  ')
+	if other_pmf==True:
+		extra_pmf_file = str(input("\nwhich pmf do wish to plot extra:  "))
+		extra_pmf=get_file(extra_pmf_file)
+		if np.isfinite(pmf_current[:,1]).any()==False:
+			sys.exit('Your data is NaN, you most likely have a empty histogram in your set')
+		extra_pmf[:,1]=set_to_zero(extra_pmf[:,1])
+	### pmf end ###
 
-	while True:
-		try:
-			step_y= int(input("\nPMF tick interval length on the Y axis [eg 10]:  "))
-			break
-		except:
-			print("Oops!  That was not a number.  Try again...")
+	step_y= ask_integer('PMF tick interval length on the Y axis [eg 10]:  ') ## y axis tick interval
 
-	min_x, max_x, step_x=np.round(min(pmfx), 2)-0.25, np.round(max(pmfx), 2)+0.25, 1
+	### min max start ###
+	min_x, max_x, step_x=np.round(min(pmf_current[:,0]), 2)-0.25, np.round(max(pmf_current[:,0]), 2)+0.25, 1
 	try:
 		min_y, max_y = [int(x) for x in input("\nmin and max Y (press enter to use defaults) :  ").split()]
 		print(min_y, max_y)
 	except:
 		print("\ndefault values used")
-		min_y, max_y= np.round(min(pmfl), 2)-10, np.round(max(pmfl), 2)+10
+		min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
 		print(min_y, max_y)
+	### min max end ###
 
 	rcParams['axes.linewidth']=3
 	figure(1, figsize=(10,10))
 	#energy landscape
 	subplot(4,1,1)
 	title('PMF',  fontproperties=font1, fontsize=15,y=1)
-	plot(pmfx,pmfl, linewidth=3, color='red')
-	fill_between(pmfx, pmfl-pmfe, pmfl+pmfe, alpha=0.3, facecolor='black')
+	if other_pmf==True:
+		plot(extra_pmf[:,0],extra_pmf[:,1], linewidth=3, color='blue')
+		fill_between(extra_pmf[:,0],extra_pmf[:,1]-extra_pmf[:,2], extra_pmf[:,1]-extra_pmf[:,2], alpha=0.3, facecolor='green')	
+	plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red')	
+	fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
 	xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=15);yticks(np.arange(-500,500,step_y), fontproperties=font1, fontsize=15)
 	ylim(min_y, max_y);xlim(min_x,max_x)
 	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right='off', top='off')
@@ -327,8 +329,9 @@ def plot_pmf():
 	# Histograms
 	subplot(4,1,4)
 	title('Histogram windows',  fontproperties=font1, fontsize=15,y=1)
-	plot(histt,histograms)
+	plot(histt,hist_rel)
 	xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=15);xlim(min_x,max_x)
+	yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=15)#np.arange(0,np.max(hist_sum), 1000000), 
 	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right='off', top='off')
 	xlabel('Distance(nm)', fontproperties=font2,fontsize=15);ylabel('Counts', fontproperties=font2,fontsize=15) 
 
@@ -337,7 +340,7 @@ def plot_pmf():
 	show()
 def results(miscs):
 	react_coord_final, react_coord_proposed, react_coord_init,tpr, direction, initial_offset=miscs
-	result_write = open('collective_variable_position', 'a')
+	result_write = open('collective_variable_position'+'_'+timeStamp, 'w')
 	if tpr==True:
 		if len(react_coord_final)==len(react_coord_proposed):
 			line=str('proposed       selected         final         window')
@@ -386,6 +389,8 @@ parser.add_argument('-temp', help='simulation temperature',metavar='310',type=in
 parser.add_argument('-extra', help='any extra commands for gromacs, each command should be in \'\' without the - flag e.g. \'min 5\' \'max 6\' ',metavar='-max',type=str, nargs='*')
 args = parser.parse_args()
 
+timeStamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
+
 if args.extra== None:
 	args.extra=''
 else:
@@ -394,9 +399,6 @@ else:
 		extra+='-'+args.extra[i]+' '
 	args.extra=extra
 	print(args.extra) 
-
-os.system('rm gromacs_outputs')
-
 if args.f == 'setup':
 	parameters=['pull', 's', 'e', 'window']
 	arguments=[args.pull, args.s, args.e , args.window]
