@@ -54,6 +54,14 @@ def ask_yes_no(question):
 		except KeyboardInterrupt:
 			sys.exit('\nInterrupted')
 	return additional
+def pull_question(pull_file):
+	collective_variable = str(input("\nDo you wish to use a different pull file (press enter to use default):  "))
+	if len(collective_variable)>0:
+		pull=get_file(collective_variable)
+	else:
+		pull=get_file(str(args.pull)+pull_file)
+		print("\ndefault pull file used")	
+	return pull
 def filename(location):
 	print('\ngetting file names from pull directory')
 	pull_multi, tpr_multi, xtc_multi=False, False, False
@@ -108,7 +116,7 @@ def setup():
 	direction=ask_direction()
 	offset = ask_integer('Please enter window offset [eg 12]:  ')
 	initial_offset=offset
-	offset, proposed, actual = get_conformation(args.s, args.e, args.int, offset, direction)
+	offset, proposed, actual, pull_check = get_conformation(args.s, args.e, args.int, offset, direction, True)
 	for i in range(len(proposed)):
 		react_coord_proposed.append(proposed[i])
 		react_coord_init.append(actual[i])
@@ -131,15 +139,13 @@ def get_histograms():
 		overlap.append(np.count_nonzero(histo[0:,1:-1][i] > overlap_cutoff))
 
 	return histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel
-def get_conformation(start, end, interval, offset, direction): 
+def get_conformation(start, end, interval, offset, direction, pull_check, pull): 
 	print('\nsetting up umbrella window coordinates')
 	pull_file, xtc_file, tpr_file=filename(args.pull)
-	collective_variable = str(input("\nDo you wish to use a different pull file (press enter to use default):  "))
-	if len(collective_variable)>0:
-		pull=get_file(collective_variable)
-	else:
-		pull=get_file(str(args.pull)+pull_file)
-		print("\ndefault pull file used")	
+	if pull_check==True:
+		pull=pull_question(pull_file)
+		pull_check=False
+
 	pulltime, pulldist=pull[:,0],pull[:,1]
 	frametime, distance, dist =[], [], []
 	frame=0
@@ -162,24 +168,22 @@ def get_conformation(start, end, interval, offset, direction):
 		gromacs('echo 0 | gmx trjconv -f '+args.pull+'/'+xtc_file+' -s '+args.pull+'/'+tpr_file+' -b '+str(frametime[x])+' -e '+ \
 		str(frametime[x])+' -o '+args.window+'/conf_'+direction+str(x+1+offset)+'.pdb'+str(args.extra))
 		offsetnew=x+1+offset
-	return offsetnew, np.around(drange, decimals=3), np.around(distance, decimals=3)
+	return offsetnew, np.around(drange, decimals=3), np.around(distance, decimals=3), pull_check, pull 
 def fill_gaps():
 	react_coord_proposed, react_coord_init=[],[]
 	print('\nfilling in gaps in PMF')
-	histt, histograms,hist_sum, overlap_cutoff, overlap=get_histograms()
-	initial=True
-	check, count=True,0
-	start, end=0,0
-	done=False
+	histt, histograms,hist_sum, overlap_cutoff, overlap,hist_rel=get_histograms()
+	count=0
+	start, end, pull=0,0,[]
+	done, pull_check, initial, check=False, True,True,True
 	direction=ask_direction()
 	offset = ask_integer('Please enter window offset [eg 12]:  ')
 	initial_offset=offset
-	
 	for i in range(0, len(histt)):
 		if overlap[i] < 3 or hist_sum[i] <= np.mean(hist_sum)*0.25:
 			if direction=='-':
 				colvar=histt[i]*-1
-			if direction=='+':
+			if direction=='+' or direction == '':
 				colvar=histt[i]
 			if colvar >= 0:
 				count+=1
@@ -198,17 +202,17 @@ def fill_gaps():
 					if done==True or i == len(histt)-1:
 						if count>=3:
 							if direction == '+' or direction == '':
-								offset, proposed, actual =get_conformation(start, end, args.int, offset, direction)
+								offset, proposed, actual, pull_check, pull =get_conformation(start, end, args.int, offset, direction, pull_check, pull )
 								for i in range(len(proposed)):
 									react_coord_proposed.append(proposed[i])
 									react_coord_init.append(actual[i])
 							else:
-								offset, proposed, actual=get_conformation(end,start, args.int, offset, direction)
+								offset, proposed, actual, pull_check, pull =get_conformation(end,start, args.int, offset, direction, pull_check, pull )
 								for i in range(len(proposed)):
 									react_coord_proposed.append(proposed[i])
 									react_coord_init.append(actual[i])
 						elif count ==2:
-							offset, proposed, actual=get_conformation(start, start, args.int, offset, direction)
+							offset, proposed, actual, pull_check, pull =get_conformation(start, start, args.int, offset, direction, pull_check, pull )
 							for i in range(len(proposed)):
 								react_coord_proposed.append(proposed[i])
 								react_coord_init.append(actual[i])
@@ -364,7 +368,7 @@ def results(miscs):
 def run_wham():
 	core = str(ask_integer('what core would you like to run this on 0-11: '))
 	gromacs('taskset --cpu-list '+core+' gmx wham -if '+args.en+' -it '+args.tpr+' -hist '+args.hist+' -bsres '+args.pmf+' -nBootstrap '+ \
-	str(args.boot)+' -b '+str(args.b)+' -o '+args.profile+' -bsprof '+args.bsprof+' -temp '+str(args.temp)+str(args.extra))
+	str(args.boot)+' -b '+str(args.b)+' -o '+args.profile+' -bsprof '+args.bsprof+' -temp '+str(args.temp)+' '+str(args.extra[0]))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-pmf', help='location of pmf with bootstrap and name if used with wham',metavar='bsres.xvg',type=str)
@@ -386,19 +390,13 @@ parser.add_argument('-b', help='First time to analyse (ps)',metavar='200', type=
 parser.add_argument('-profile', help='location of pmf profile',metavar='profile.xvg',type=str)
 parser.add_argument('-bsprof', help='location of bootstrap profile',metavar='bsprof.xvg',type=str)
 parser.add_argument('-temp', help='simulation temperature',metavar='310',type=int)
-parser.add_argument('-extra', help='any extra commands for gromacs, each command should be in \'\' without the - flag e.g. \'min 5\' \'max 6\' ',metavar='-max',type=str, nargs='*')
+parser.add_argument('-extra', help='any extra commands for gromacs, each command should be in \'\' e.g. \'-min 5 -max 6\' ',metavar='-max',type=str, nargs='*')
 args = parser.parse_args()
 
 timeStamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
 
 if args.extra== None:
 	args.extra=''
-else:
-	extra=' '
-	for i in range(len (args.extra)):
-		extra+='-'+args.extra[i]+' '
-	args.extra=extra
-	print(args.extra) 
 if args.f == 'setup':
 	parameters=['pull', 's', 'e', 'window']
 	arguments=[args.pull, args.s, args.e , args.window]
