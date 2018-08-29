@@ -66,12 +66,12 @@ def filename(location):
 	print('\ngetting file names from pull directory')
 	pull_multi, tpr_multi, xtc_multi=False, False, False
 	for file in os.listdir(location):
-		if file.endswith('_pullf.xvg'):
+		if file.endswith('_pullx.xvg'):
 			if pull_multi==False:
 				pull_file=file
 				pull_multi=True
 			else:
-				sys.exit('too many pullf files')
+				sys.exit('too many pullx files')
 		if file.endswith('tpr'):
 			if tpr_multi==False:
 				tpr_file=file
