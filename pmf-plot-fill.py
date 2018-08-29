@@ -165,9 +165,11 @@ def get_conformation(start, end, interval, offset, direction, pull_check, pull):
 					run=False
 	offsetnew=offset
 	drange=drange[:len(frametime)]
+	try: 
+		os.makedirs(args.window+'/configuration')	
 	for x in range(len(frametime)):
 		gromacs('echo 0 | gmx trjconv -f '+args.pull+'/'+xtc_file+' -s '+args.pull+'/'+tpr_file+' -b '+str(frametime[x])+' -e '+ \
-		str(frametime[x])+' -o '+args.window+'/conf_'+direction+str(x+1+offset)+'.pdb'+str(args.extra))
+		str(frametime[x])+' -o '+args.window+'/configuration/conf_'+direction+str(x+1+offset)+'.pdb'+str(args.extra))
 		offsetnew=x+1+offset
 	return offsetnew, np.around(drange, decimals=3), np.around(distance, decimals=3), pull_check, pull 
 def fill_gaps():
@@ -234,15 +236,14 @@ def minimise(offset_initial, offset, direction):
 		except:
 			additional=ask_yes_no(args.window+'/min/r'+str(i)+'\t already exists \nDo you wish add to folder anyway (yes/no):  ')
 			if additional ==True:
-				gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
+				gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/configuration/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
 		if direct==True:
-			gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
+			gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/configuration/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
 	cwd=os.getcwd()
 	for i in range(offset_initial+1, offset+1):
 		os.chdir(args.window+'/min/r'+direction+str(i))
 		gromacs('gmx mdrun -v -deffnm window_'+direction+str(i))
 		os.chdir(cwd)
-		
 def make_umbrellas(offset_initial, offset, direction):
 	print('\nmaking umbrellas windows')
 	for i in range(offset_initial+1, offset+1):
