@@ -102,12 +102,13 @@ def final(cmd):
 	return err.splitlines()
 def create_additional(additional, initial_offset, offset, direction):
 	if additional ==True:
-		parameters=['md.mdp', 'output directory', 'topology file', 'index file']
-		arguments=[args.mdp, args.o, args.p, args.n]
+		parameters=['md.mdp', 'output directory', 'topology file', 'index file', 'min.mdp']
+		arguments=[args.mdp, args.o, args.p, args.n, args.min]
 		if None in arguments:
 			for i in range(len(parameters)):
 				print('-'+parameters[i]+'\t'+str(arguments[i]))
 		else:
+			minimise(initial_offset, offset, direction)
 			make_umbrellas(initial_offset, offset, direction)
 	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' gromacs_outputs_'+timeStamp+' | awk \'{print $4}\'')
 def setup():
@@ -223,19 +224,38 @@ def fill_gaps():
 	additional = ask_yes_no('Do you wish to create umbrella tpr files (yes/no):  ')
 	react_coord_final=create_additional(additional, initial_offset, offset, direction)
 	return react_coord_final, react_coord_proposed, react_coord_init, additional, direction, initial_offset
+def minimise(offset_initial, offset, direction):
+	print('\nmaking minimised windows')
+	for i in range(offset_initial+1, offset+1):
+		direct=False
+		try: 
+			os.makedirs(args.window+'/min/r'+direction+str(i))
+			direct=True
+		except:
+			additional=ask_yes_no(args.window+'/min/r'+str(i)+'\t already exists \nDo you wish add to folder anyway (yes/no):  ')
+			if additional ==True:
+				gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
+		if direct==True:
+			gromacs('gmx grompp -f '+args.min+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i))
+	cwd=os.getcwd()
+	for i in range(offset_initial+1, offset+1):
+		os.chdir(args.window+'/min/r'+direction+str(i))
+		gromacs('gmx mdrun -v -deffnm window_'+direction+str(i))
+		os.chdir(cwd)
+		
 def make_umbrellas(offset_initial, offset, direction):
 	print('\nmaking umbrellas windows')
 	for i in range(offset_initial+1, offset+1):
 		direct=False
 		try: 
-			os.mkdir(args.o+'/r'+direction+str(i))
+			os.makedirs(args.o+'/r'+direction+str(i))
 			direct=True
 		except:
 			additional=ask_yes_no(args.o+'/r'+str(i)+'\t already exists \nDo you wish overwrite (yes/no):  ')
 			if additional ==True:
-				gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
+				gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i)+'.gro -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
 		if direct==True:
-			gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/conf_'+direction+str(i)+'.pdb -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
+			gromacs('gmx grompp -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 1 -c '+args.window+'/min/r'+direction+str(i)+'/window_'+direction+str(i)+'.gro -o '+args.o+'/r'+direction+str(i)+'/window_'+direction+str(i))
 def set_to_zero(energy):
 	if energy[-1] < 0:
 		energy = energy+(0-energy[-1])
@@ -391,6 +411,8 @@ parser.add_argument('-profile', help='location of pmf profile',metavar='profile.
 parser.add_argument('-bsprof', help='location of bootstrap profile',metavar='bsprof.xvg',type=str)
 parser.add_argument('-temp', help='simulation temperature',metavar='310',type=int)
 parser.add_argument('-extra', help='any extra commands for gromacs, each command should be in \'\' e.g. \'-min 5 -max 6\' ',metavar='-max',type=str, nargs='*')
+parser.add_argument('-min', help='umbrella minimise mdp file',metavar='min.mdp', type=str)
+
 args = parser.parse_args()
 
 timeStamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
@@ -436,7 +458,6 @@ elif args.f == 'wham':
 			plot_pmf()
 else:
 	sys.exit('Try again, enter  [-f setup, plot, fill or wham]')
-
 
 
 
