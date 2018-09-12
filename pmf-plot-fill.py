@@ -134,10 +134,10 @@ def get_histograms():
 	histt, histograms=histo[:,0],histo[:,1:-1] # simplify variables
 	hist_sum=(histograms.sum(axis=1))/np.max(histograms.sum(axis=1))
 	hist_rel=histograms/np.max(histograms)#.sum(axis=1)
-	overlap_cutoff=np.mean(np.max(histo[:,1:-1]))*0.1
+	overlap_cutoff=np.mean(np.max(hist_rel))*0.1
 	overlap=[]
 	for i in range(len(histo[0:,1:-1])):
-		overlap.append(np.count_nonzero(histo[0:,1:-1][i] > overlap_cutoff))
+		overlap.append(np.count_nonzero(hist_rel[i] > overlap_cutoff))
 
 	return histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel
 def get_conformation(start, end, interval, offset, direction, pull_check, pull): 
@@ -166,7 +166,9 @@ def get_conformation(start, end, interval, offset, direction, pull_check, pull):
 	offsetnew=offset
 	drange=drange[:len(frametime)]
 	try: 
-		os.makedirs(args.window+'/configuration')	
+		os.makedirs(args.window+'/configuration')
+	except:
+		print(args.window+'/configuration already exists')
 	for x in range(len(frametime)):
 		gromacs('echo 0 | gmx trjconv -f '+args.pull+'/'+xtc_file+' -s '+args.pull+'/'+tpr_file+' -b '+str(frametime[x])+' -e '+ \
 		str(frametime[x])+' -o '+args.window+'/configuration/conf_'+direction+str(x+1+offset)+'.pdb'+str(args.extra))
