@@ -54,7 +54,7 @@ def get_pull():
 def make_min():
 	if not os.path.exists(location+'em.mdp'):
 		em = open(location+'/em.mdp','w')
-		em.write('integrator = cg\nnsteps     = 5000\nemtol      = 1000\nemstep     = 0.001')
+		em.write('integrator = steep\nnsteps     = 5000\nemtol      = 1000\nemstep     = 0.001')
 
 def folders():
 	for i in range(len(directories)): 
@@ -98,10 +98,7 @@ def setup():
 		end_pull=max(pull[1])
 	else:
 		end_pull=args.end
-
-
 	react_coord_proposed, react_coord_init=[],[]
-	
 	end, proposed, actual = get_conformation(start_pull, end_pull, args.int, args.offset, pull)
 	for i in range(len(proposed)):
 		react_coord_proposed.append(proposed[i])
@@ -118,19 +115,20 @@ def equilibrate(offset, offset_end):
 			for i in range(len(parameters)):
 				print('-'+parameters[i]+'\t'+str(arguments[i]))
 		else:
-			print('\nmaking minimised windows')
-			for i in range(offset+1, offset_end+1):
-				try: 
-					os.makedirs(directories[2]+'/window_'+sign+str(i))
-				except:
-					print('minise folder exists')
-				gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
-			cwd=os.getcwd()
-			for i in range(offset+1, offset_end+1):
-				os.chdir(directories[2]+'/window_'+sign+str(i))
-				gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
-				os.chdir(cwd)
-			print('\nmaking umbrellas windows')
+			if args.tpronly == False:
+				print('\nmaking minimised windows')
+				for i in range(offset+1, offset_end+1):
+					try: 
+						os.makedirs(directories[2]+'/window_'+sign+str(i))
+					except:
+						print('minise folder exists')
+					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+				cwd=os.getcwd()
+				for i in range(offset+1, offset_end+1):
+					os.chdir(directories[2]+'/window_'+sign+str(i))
+					gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
+					os.chdir(cwd)
+				print('\nmaking umbrellas windows')
 			for i in range(offset+1, offset_end+1):
 				try: 
 					os.makedirs(directories[3]+'/window_'+sign+str(i))
@@ -152,7 +150,8 @@ def get_conformation(start, end, interval, offset, pull):
 			dist.append(drange[j])
 	offsetnew=offset
 	for x in range(len(frametime)):
-		gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
+		if args.tpronly == False:
+			gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
 		offsetnew=x+1+offset
 	return offsetnew, np.around(dist, decimals=3), np.around(distance, decimals=3)
 
@@ -384,13 +383,14 @@ parser.add_argument('-n', help='index file',metavar='index.ndx', type=str)
 parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
 parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
 parser.add_argument('-offset', help='window offset',metavar='5',type=int)
-parser.add_argument('-tpr', help='make tpr files default (True)', action='store_true')
+parser.add_argument('-tpr', help='make tpr files default (False)', action='store_true')
 parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float)
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
 parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str)
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
 parser.add_argument('-dir', help='direction default (positive)', action='store_true')
+parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
 args = parser.parse_args()
 
 timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
@@ -436,18 +436,6 @@ elif args.func== 'plot':
 			print('-'+parameters[i]+'\t'+str(arguments[i]))
 	else:
 		plot_pmf()
-
-# elif args.f == 'wham':
-# 	parameters=['en.dat', 'tpr.dat','pmf', 'hist', 'bootstrap', 'time', 'profile', 'bsprof', 'temperature']
-# 	arguments=[args.en, args.tpr, args.pmf, args.hist, args.boot, args.b, args.profile, args.bsprof, args.temp]
-# 	if None in arguments:
-# 		for i in range(len(parameters)):
-# 			print('-'+parameters[i]+'\t'+str(arguments[i]))
-# 	else:
-# 		run_wham()
-# 		plot_results=ask_yes_no('Do you wish to plot the results? (yes/no)')
-# 		if plot_results==True:
-# 			plot_pmf()
 else:
 	sys.exit('Try again, enter  [-f setup, plot, fill]')
 
