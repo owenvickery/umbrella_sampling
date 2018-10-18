@@ -41,7 +41,7 @@ def get_pull():
 	try:
 		file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13)
 	except:
-		sys.exit("Cannot find pull file")
+		sys.exit("Cannot find pull file or something is wrong with it: "+args.pull)
 	pull=[[],[]]
 	for i in range(len(file_out[:,0])):
 		pull[0].append(file_out[:,0][i])
@@ -151,7 +151,7 @@ def get_conformation(start, end, interval, offset, pull):
 	offsetnew=offset
 	for x in range(len(frametime)):
 		if args.tpronly == False:
-			gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
+                    gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
 		offsetnew=x+1+offset
 	return offsetnew, np.around(dist, decimals=3), np.around(distance, decimals=3)
 
@@ -161,13 +161,13 @@ def get_histograms():
 		histograms=np.genfromtxt(args.hist, autostrip=True, comments='@',skip_header=13)
 	except:
 		sys.exit("Cannot find Histogram file")
-	hist_sum=(histograms[:,1:-1].sum(axis=1))/np.max(histograms[:,1:-1].sum(axis=1))
-	hist_rel=histograms[:,1:-1]/np.max(histograms[:,1:-1])
+	hist_sum=(histograms[:,1:].sum(axis=1))/np.max(histograms[:,1:].sum(axis=1))
+	hist_rel=histograms[:,1:]/np.max(histograms[:,1:])
 	overlap_cutoff=np.mean(np.max(hist_rel))*0.1 ################################################### 10% of total hisgram height discarded
 	overlap=[]
-	for i in range(len(histograms[0:,1:-1])):
+	for i in range(len(histograms[0:,1:])):
 		overlap.append(np.count_nonzero(hist_rel[i] > overlap_cutoff))
-	return histograms[:,0], histograms[:,1:-1],hist_sum, overlap_cutoff, overlap, hist_rel
+	return histograms[:,0], histograms[:,1:],hist_sum, overlap_cutoff, overlap, hist_rel
 
 def fill_gaps():
 	print('\nfilling in gaps in PMF')
@@ -368,15 +368,38 @@ def results(miscs):
 			result_write.write(line+'\n')
 	backup()
 			
-# def run_wham():
-	# core = str(ask_integer('what core would you like to run this on 0-11: '))
-	# gromacs('taskset --cpu-list '+core+' gmx wham -if '+args.en+' -it '+args.tpr+' -hist '+args.hist+' -bsres '+args.pmf+' -nBootstrap '+ \
-	# str(args.boot)+' -b '+str(args.b)+' -o '+args.profile+' -bsprof '+args.bsprof+' -temp '+str(args.temp)+' '+str(args.extra[0]))
+def pull_concat():
+
+        for i in range(int(args.start), int(args.end)+1):
+                files_range, time, pull = [], [], []
+                for root, dirs, files in os.walk("."):
+                        for filename in files:
+                                if 'window_'+str(i)+'.' in filename or 'window_'+str(i)+'_' in filename and not '_com' in filename:
+                                        if 'pullf' in filename:
+                                                files_range.append(filename)
+                print(files_range)
+                for x in range(len(files_range)):
+                        for line in open(files_range[x], 'r').readlines():
+                                if not line[0] in ['#', '@']:
+                                        if len(line) > 0 and len(line.split()) ==2:
+                                                time.append(float(line.split()[0]))
+                                                pull.append(float(line.split()[1]))
+                if len(time) > 0:
+                        time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
+                        print(i)
+                        em = open('window_'+str(i)+'_pullf_com.xvg','w')
+                        for j in range(len(time_ord)):
+                                em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+        return
+
+def run_wham():
+	core = str(ask_integer('what core would you like to run this on 0-11: '))
+	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-mdp', help='umbrella mdp file',metavar='md.mdp', type=str)
-parser.add_argument('-func', help='what to do initial setup, plot or fill',metavar='[setup, plot, fill]',type=str, choices= ['setup', 'plot', 'fill'])
+parser.add_argument('-func', help='what to do initial setup, plot, concat, wham or fill',metavar='[setup, plot, concat, wham, fill]',type=str, choices= ['setup', 'plot', 'concat','wham', 'fill'])
 parser.add_argument('-f', help='xtc file for setup',metavar='pull.xtc',type=str)
 parser.add_argument('-s', help='structure file for setup',metavar='pull.tpr',type=str)
 parser.add_argument('-n', help='index file',metavar='index.ndx', type=str)
@@ -387,6 +410,7 @@ parser.add_argument('-tpr', help='make tpr files default (False)', action='store
 parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float)
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
+parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
 parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str)
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
 parser.add_argument('-dir', help='direction default (positive)', action='store_true')
@@ -436,6 +460,22 @@ elif args.func== 'plot':
 			print('-'+parameters[i]+'\t'+str(arguments[i]))
 	else:
 		plot_pmf()
+elif args.func== 'concat':
+	parameters=['start', 'end']
+	arguments=[args.start, args.end]
+	if None in arguments:
+		for i in range(len(parameters)):
+			print('-'+parameters[i]+'\t'+str(arguments[i]))
+	else:
+		pull_concat()
+elif args.func== 'wham':
+	parameters=['pmf', 'boot', 'start']
+	arguments=[args.pmf, args.boot, args.start]
+	if None in arguments:
+		for i in range(len(parameters)):
+			print('-'+parameters[i]+'\t'+str(arguments[i]))
+	else:
+		run_wham()
 else:
 	sys.exit('Try again, enter  [-f setup, plot, fill]')
 
