@@ -75,7 +75,10 @@ def gromacs(cmd):
 	err, out = output.communicate()
 	exitcode = output.returncode
 	out=out.decode("utf-8")
-	checks = open(location+'/setup_files_'+timestamp+'/gromacs_outputs'+'_'+timestamp, 'a')
+	if args.func != 'wham':
+		checks = open(location+'/setup_files_'+timestamp+'/gromacs_outputs'+'_'+timestamp, 'a')
+	else:
+		checks = open('gromacs_outputs'+'_'+timestamp, 'a')
 	checks.write(out)
 
 def final(cmd):
@@ -116,29 +119,35 @@ def equilibrate(offset, offset_end):
 				print('-'+parameters[i]+'\t'+str(arguments[i]))
 		else:
 			if args.tpronly == False:
-				print('\nmaking minimised windows')
-				for i in range(offset+1, offset_end+1):
-					try: 
-						os.makedirs(directories[2]+'/window_'+sign+str(i))
-					except:
-						print('minise folder exists')
-					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
-				cwd=os.getcwd()
-				for i in range(offset+1, offset_end+1):
-					os.chdir(directories[2]+'/window_'+sign+str(i))
-					gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
-					os.chdir(cwd)
-				print('\nmaking umbrellas windows')
+				if args.min == False:
+					print('\nmaking minimised windows _test')
+					print(args.min)
+					for i in range(offset+1, offset_end+1):
+						try: 
+							os.makedirs(directories[2]+'/window_'+sign+str(i))
+						except:
+							print('minimise folder exists')
+						gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+					cwd=os.getcwd()
+					for i in range(offset+1, offset_end+1):
+						os.chdir(directories[2]+'/window_'+sign+str(i))
+						gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
+						os.chdir(cwd)
+					print('\nmaking umbrellas windows')
 			for i in range(offset+1, offset_end+1):
 				try: 
 					os.makedirs(directories[3]+'/window_'+sign+str(i))
 				except:
-					print('windows folder exists')
-				gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+					print('windows folder exists') 
+				if args.min == True:
+					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
+				else:
+					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
 	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
 
 def get_conformation(start, end, interval, offset, pull): 
 	print('\nsetting up umbrella window coordinates')
+	folders()
 	frametime, distance, dist =[], [], []
 	drange=np.arange(start,end,interval)
 	if start==end:
@@ -407,6 +416,7 @@ parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
 parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
 parser.add_argument('-offset', help='window offset',metavar='5',type=int)
 parser.add_argument('-tpr', help='make tpr files default (False)', action='store_true')
+parser.add_argument('-min', help='skip minimisation default (False)', action='store_true')
 parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float)
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
