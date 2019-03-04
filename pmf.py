@@ -41,6 +41,18 @@ def ask_yes_no(question):
 			sys.exit('\nInterrupted')
 	return additional
 
+
+def check_arguments(arguments):
+	correct=True
+	for argue in arguments:
+		if not bool(options[argue]):
+			print('\narguement: \''+argue+'\' is missing')
+			correct=False
+	if not correct:
+		print('\n')
+		parser.print_help()
+	return correct
+
 def get_pull():
 	try:
 		file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13)
@@ -66,12 +78,12 @@ def folders():
 			os.makedirs(directories[i])
 		except:
 			print(directories[i]+' folder exists')
+
 def backup():
-	if args.tpr == True:
+	if args.tpr:
 		copyfile(args.p, location+'/setup_files_'+timestamp+'/topol.top')
 		copyfile(args.mdp, location+'/setup_files_'+timestamp+'/md.mdp')
 		copyfile(args.n, location+'/setup_files_'+timestamp+'/index.ndx')
-
 
 def gromacs(cmd):
 	print('\nrunning gromacs: \n '+cmd)
@@ -114,39 +126,32 @@ def setup():
 	return react_coord_proposed, react_coord_init, react_coord_final 
 
 def equilibrate(offset, offset_end):
-	if args.tpr ==True:
-		parameters=['md.mdp', 'tpr file','xtc file', 'index file', 'topology file']
-		arguments=[args.mdp, args.s, args.f, args.n, args.p]
-		make_min()
-		if None in arguments:
-			for i in range(len(parameters)):
-				print('-'+parameters[i]+'\t'+str(arguments[i]))
-		else:
-			if args.tpronly == False:
-				if args.min == False:
-					print('\nmaking minimised windows _test')
-					print(args.min)
-					for i in range(offset+1, offset_end+1):
-						try: 
-							os.makedirs(directories[2]+'/window_'+sign+str(i))
-						except:
-							print('minimise folder exists')
-						gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
-					cwd=os.getcwd()
-					for i in range(offset+1, offset_end+1):
-						os.chdir(directories[2]+'/window_'+sign+str(i))
-						gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
-						os.chdir(cwd)
-					print('\nmaking umbrellas windows')
+	if args.tpronly:
+		if not args.min:
+			print('\nmaking minimised windows _test')
+			print(args.min)
 			for i in range(offset+1, offset_end+1):
 				try: 
-					os.makedirs(directories[3]+'/window_'+sign+str(i))
+					os.makedirs(directories[2]+'/window_'+sign+str(i))
 				except:
-					print('windows folder exists') 
-				if args.min == True:
-					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -r '+directories[1]+'/window_'+sign+str(i)+'.pdb  -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
-				else:
-					gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -r '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+					print('minimise folder exists')
+				gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+			cwd=os.getcwd()
+			for i in range(offset+1, offset_end+1):
+				os.chdir(directories[2]+'/window_'+sign+str(i))
+				gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
+				os.chdir(cwd)
+			print('\nmaking umbrellas windows')
+	for i in range(offset+1, offset_end+1):
+		try: 
+			os.makedirs(directories[3]+'/window_'+sign+str(i))
+		except:
+			print('windows folder exists') 
+		if args.min:
+			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -r '+directories[1]+'/window_'+sign+str(i)+'.pdb  -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
+		else:
+			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -r '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+
 	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
 
 def get_conformation(start, end, interval, offset, pull): 
@@ -163,8 +168,8 @@ def get_conformation(start, end, interval, offset, pull):
 			dist.append(drange[j])
 	offsetnew=offset
 	for x in range(len(frametime)):
-		if args.tpronly == False:
-                    gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
+		if not args.tpronly:
+			gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
 		offsetnew=x+1+offset
 	return offsetnew, np.around(dist, decimals=3), np.around(distance, decimals=3)
 
@@ -200,7 +205,7 @@ def fill_gaps():
 				colvar=coord[i]
 			if colvar >= 0:
 				count+=1
-				if check == True : 
+				if check: 
 					start=colvar
 					initial=i
 					check=False
@@ -240,6 +245,7 @@ def set_to_zero(energy):
 	else:
 		energy = energy-energy[-1]	
 	return energy
+
 def plot_pmf():
 	print('\nplotting PMF data')
 	# Fonts
@@ -353,6 +359,7 @@ def plot_pmf():
 	subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
 
 	show()
+
 def results(miscs):
 	react_coord_proposed, react_coord_init,react_coord_final=miscs
 	result_write = open(location+'/setup_files_'+timestamp+'/collective_variable_position'+'_'+timestamp, 'w')
@@ -386,30 +393,42 @@ def results(miscs):
 	backup()
 			
 def pull_concat():
-
+	print('\'window\'\t\'total part numbers\'')
 	for i in range(int(args.start), int(args.end)+1):
 		files_range, time, pull = [], [], []
-		for root, dirs, files in os.walk("."):
+		if args.current:
+			xvg_loc = './'
+		else:
+			xvg_loc = '../windows/window_'+str(i)+'/'
+		
+		for root, dirs, files in os.walk(xvg_loc):
 			for filename in files:
 				if 'window_'+str(i)+'.' in filename or 'window_'+str(i)+'_' in filename and not '_com' in filename:
 					if 'pullf' in filename:
 						files_range.append(filename)
-		print(files_range)
-		for x in range(len(files_range)):
-			for line in open(files_range[x], 'r').readlines():
-				if not line[0] in ['#', '@']:
-					if len(line) > 0 and len(line.split()) ==2:
-						try:
-							time.append(float(line.split()[0]))
-							pull.append(float(line.split()[1]))
-						except:
-							break
-		if len(time) > 0:
-			time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
-			print(i)
-			em = open('window_'+str(i)+'_pullf_com.xvg','w')
-			for j in range(len(time_ord)):
-				em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+			break
+
+		if len(files_range) == 1:
+			print(str(i),'\t\t\t', len(files_range))
+			os.system('cp '+xvg_loc+files_range[0]+' window_'+str(i)+'_pullf_com.xvg')		
+		elif len(files_range) >= 2: 
+			print(str(i),'\t\t\t', len(files_range))
+			for x in range(len(files_range)):
+				for line in open(xvg_loc+files_range[x], 'r').readlines():
+					if not line[0] in ['#', '@']:
+						if len(line) > 0 and len(line.split()) ==2:
+							try:
+								time.append(float(line.split()[0]))
+								pull.append(float(line.split()[1]))
+							except:
+								break
+			if len(time) > 0:
+				time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
+				em = open('window_'+str(i)+'_pullf_com.xvg','w')
+				for j in range(len(time_ord)):
+					em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+		else:
+			print(str(i),'\t\t\t', len(files_range), '\t SKIPPED')
 	return
 
 def run_wham():
@@ -425,10 +444,10 @@ parser.add_argument('-s', help='structure file for setup (use the pull.tpr)',met
 parser.add_argument('-n', help='index file for the system',metavar='index.ndx', type=str)
 parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
 parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
-parser.add_argument('-offset', help='window offset',metavar='5',type=int)
-parser.add_argument('-tpr', help='make tpr files default (False)', action='store_true')
-parser.add_argument('-min', help='skip minimisation default (False)', action='store_true')
-parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float)
+parser.add_argument('-offset', help='window offset',metavar='5',type=int, default=0)
+parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
+parser.add_argument('-min', help='switch off minisation', action='store_true')
+parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float, default=0.05)
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
 parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
@@ -436,8 +455,10 @@ parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
 parser.add_argument('-dir', help='direction default (positive)', action='store_true')
 parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
-args = parser.parse_args()
+parser.add_argument('-current', help='to concat in current directory', action='store_true')
 
+args = parser.parse_args()
+options = vars(args)
 timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
 
 
@@ -454,48 +475,31 @@ if args.dir==True:
 	sign='-'
 else:
 	sign=''
-
 if args.func == 'setup':
-	parameters=['pull file', 'int', 'offset']
-	arguments=[args.pull, args.int, args.offset]
-	if None in arguments:
-		for i in range(len(parameters)):
-			print('-'+parameters[i]+'\t'+str(arguments[i]))
-	else:
+	correct = check_arguments(['pull', 'int', 'offset'])
+	if args.tpr:
+		correct = check_arguments(['mdp', 'tpr','f', 'n', 'p'])
+	if correct:
 		misc = setup()
 		results(misc)
 elif args.func == 'fill':
-	parameters=['pull file', 'interval','offset']
-	arguments=[args.pull, args.int, args.offset]
-	if None in arguments:
-		for i in range(len(parameters)):
-			print('-'+parameters[i]+'\t'+str(arguments[i]))
-	else:
+	correct = check_arguments(['pull', 'int', 'offset'])
+	if args.tpr:
+		correct = check_arguments(['mdp', 'tpr','f', 'n', 'p'])
+	if correct:
 		misc = fill_gaps()
 		results(misc)
 elif args.func== 'plot':
-	parameters=['pmf', 'hist']
-	arguments=[args.pmf, args.hist]
-	if None in arguments:
-		for i in range(len(parameters)):
-			print('-'+parameters[i]+'\t'+str(arguments[i]))
-	else:
+	correct = check_arguments(['pmf', 'hist'])
+	if correct:
 		plot_pmf()
 elif args.func== 'concat':
-	parameters=['start', 'end']
-	arguments=[args.start, args.end]
-	if None in arguments:
-		for i in range(len(parameters)):
-			print('-'+parameters[i]+'\t'+str(arguments[i]))
-	else:
+	correct = check_arguments(['start', 'end'])
+	if correct:
 		pull_concat()
 elif args.func== 'wham':
-	parameters=['pmf', 'boot', 'start']
-	arguments=[args.pmf, args.boot, args.start]
-	if None in arguments:
-		for i in range(len(parameters)):
-			print('-'+parameters[i]+'\t'+str(arguments[i]))
-	else:
+	correct = check_arguments(['pmf', 'boot', 'start'])
+	if correct:
 		run_wham()
 else:
 	sys.exit('Try again, enter  [-f setup, plot, fill or concat]')
