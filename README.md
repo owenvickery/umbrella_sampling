@@ -13,14 +13,13 @@ end of collective variable you wish to sample (flag -end)
 
 interval between umbrella windows in nm eg 0.05 spaces a window every 0.5 Angstroms (flag -int)
 
-window offset, if you have 100 windows already enter 100. the script will write windows from 101 onwards (flag -offset
+window offset, if you have 100 windows already, enter 100. the script will write windows from 101 onwards (flag -offset
 
-If you wish to make the tpr files in addition (flag -tpr):
+If you do notwish to make the tpr files (flag -tpr):
 the mdp file needs to be specified (flag -mdp)
 the topology file needs to be specified (flag -p)
 the index file needs to be specified (flag -n)
 
-If you wish to only make snapshots ommit the -tpr flag.
 if you wish to skip energy minimisation use -min flag
 
 
@@ -33,8 +32,7 @@ The histogram file from gmx wham (flag -hist)
 
 you be asked various questions, reply with Y/N or a numerical value.
 
-To concatonate part files if you do your umbrella sampling with the noappend flag.
-
+To concatonate part files if you do your umbrella sampling with the noappend flag, it will read the windows directory.
 use the flags -start/-end to specify window range to concatonate.
 
 to run wham (I would do manually) but you can use this code (flag -wham).
