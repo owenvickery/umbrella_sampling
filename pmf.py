@@ -136,10 +136,10 @@ def setup():
 	return react_coord_proposed, react_coord_init, react_coord_final 
 
 def equilibrate(offset, offset_end):
-	if args.tpronly:
+	if args.tpr:
 		if args.min:
+			make_min()
 			print('\nmaking minimised windows _test')
-			print(args.min)
 			for i in range(offset+1, offset_end+1):
 				try: 
 					os.makedirs(directories[2]+'/window_'+sign+str(i))
@@ -157,10 +157,12 @@ def equilibrate(offset, offset_end):
 			os.makedirs(directories[3]+'/window_'+sign+str(i))
 		except:
 			print('windows folder exists') 
+
 		if args.min:
-			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -r '+directories[1]+'/window_'+sign+str(i)+'.pdb  -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
-		else:
 			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -r '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+		else:	
+			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -r '+directories[1]+'/window_'+sign+str(i)+'.pdb  -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
+		
 
 	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
 
@@ -209,7 +211,7 @@ def fill_gaps():
 	done, pull_check, initial, check=False, True,True,True
 	initial_offset, offset=args.offset, args.offset
 	for i in range(0, len(coord)):
-		if overlap[i] < 3 or histogram_sum[i] <= np.mean(histogram_sum)*0.25:
+		if overlap[i] < 3 or histogram_sum[i] <= np.mean(histogram_sum)*0.25:################################################### 25% of total hisgram height 
 			if args.dir==True:
 				colvar=coord[i]*-1
 			else:
@@ -457,7 +459,7 @@ parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
 parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
 parser.add_argument('-offset', help='window offset',metavar='5',type=int, default=0)
 parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
-parser.add_argument('-min', help='switch off minisation', action='store_true')
+parser.add_argument('-min', help='switch off minisation', action='store_false')
 parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float, default=0.05)
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
