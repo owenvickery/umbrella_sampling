@@ -24,6 +24,16 @@ def ask_integer(question):
 		except:
 			print("Oops!  That was not a number.  Try again...")
 	return integer
+def ask_number(question):
+	while True:
+		try:
+			integer = float(input("\n"+question))
+			break
+		except KeyboardInterrupt:
+			sys.exit('\nInterrupted')
+		except:
+			print("Oops!  That was not a number.  Try again...")
+	return integer
 
 def ask_yes_no(question):
 	additional=False
@@ -127,7 +137,7 @@ def setup():
 
 def equilibrate(offset, offset_end):
 	if args.tpronly:
-		if not args.min:
+		if args.min:
 			print('\nmaking minimised windows _test')
 			print(args.min)
 			for i in range(offset+1, offset_end+1):
@@ -156,7 +166,7 @@ def equilibrate(offset, offset_end):
 
 def get_conformation(start, end, interval, offset, pull): 
 	print('\nsetting up umbrella window coordinates')
-	folders()
+	# folders()
 	frametime, distance, dist =[], [], []
 	drange=np.arange(start,end,interval)
 	if start==end:
@@ -167,6 +177,7 @@ def get_conformation(start, end, interval, offset, pull):
 			frametime.append(pull[0][pull[1].index(min(pull[1], key=lambda x:abs(x-drange[j])))])
 			dist.append(drange[j])
 	offsetnew=offset
+	print(len(frametime))
 	for x in range(len(frametime)):
 		if not args.tpronly:
 			gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
@@ -295,12 +306,12 @@ def plot_pmf():
 			extra_lands[plot_num][:,1]=set_to_zero(extra_lands[plot_num][:,1])
 	### pmf end ###
 
-	step_y= ask_integer('PMF tick interval length on the Y axis [eg 10]:  ') ## y axis tick interval
+	step_y= ask_number('PMF tick interval length on the Y axis [eg 10]:  ') ## y axis tick interval
 
 	### min max start ###
 	min_x, max_x, step_x=np.round(min(pmf_current[:,0]), 2)-0.25, np.round(max(pmf_current[:,0]), 2)+0.25, 1
 	try:
-		min_y, max_y = [int(x) for x in input("\nmin and max Y (press enter to use defaults) :  ").split()]
+		min_y, max_y = [float(x) for x in input("\nmin and max Y (press enter to use defaults) :  ").split()]
 		print(min_y, max_y)
 	except:
 		print("\ndefault values used")
