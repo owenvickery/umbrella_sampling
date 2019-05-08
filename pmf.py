@@ -9,21 +9,8 @@ from subprocess import Popen, PIPE
 import subprocess, shlex
 from time import gmtime, strftime
 from shutil import copyfile
+import multiprocessing as mp
 
-
-
-
-
-def ask_integer(question):
-	while True:
-		try:
-			integer = int(input("\n"+question))
-			break
-		except KeyboardInterrupt:
-			sys.exit('\nInterrupted')
-		except:
-			print("Oops!  That was not a number.  Try again...")
-	return integer
 def ask_number(question):
 	while True:
 		try:
@@ -35,23 +22,7 @@ def ask_number(question):
 			print("Oops!  That was not a number.  Try again...")
 	return integer
 
-def ask_yes_no(question):
-	additional=False
-	while True:
-		q_result = input("\n"+question)
-		try:
-			if q_result.lower() in ['yes','y']:
-				additional=True
-				break
-			elif q_result.lower() in ['n', 'no']:
-				break
-			else:
-				print("\nplease enter yes or no.")
-		except KeyboardInterrupt:
-			sys.exit('\nInterrupted')
-	return additional
-
-
+### checks whether all arguements are present ###
 def check_arguments(arguments):
 	correct=True
 	for argue in arguments:
@@ -63,25 +34,31 @@ def check_arguments(arguments):
 		parser.print_help()
 	return correct
 
+
+### gets CV from pull file 
 def get_pull():
 	try:
 		file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13)
 	except:
-		sys.exit("Cannot find pull file or something is wrong with it: "+args.pull)
+		print('Cannot find pull file or something is wrong with it')
+		print('removing final line to fix (hopefully)')
+		try:
+			file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13, skip_footer=1)
+		except:
+			sys.exit("Cannot find pull file or something is wrong with it: "+args.pull)
 	pull=[[],[]]
 	for i in range(len(file_out[:,0])):
-		pull[0].append(file_out[:,0][i])
-		if len(file_out[0]) >3:
-			pull[1].append(file_out[:,3][i])
-		else: 
-			pull[1].append(file_out[:,1][i])
+		pull[0].append(file_out[:,0][i]) ## time
+		pull[1].append(file_out[:,1][i]) ## CV
 	return pull
 
+### make minimise mdp file
 def make_min():
 	if not os.path.exists(location+'em.mdp'):
 		em = open(location+'/em.mdp','w')
 		em.write('integrator = steep\nnsteps     = 5000\nemtol      = 1000\nemstep     = 0.001')
 
+### make file directories for umbrella sampling
 def folders():
 	for i in range(len(directories)): 
 		try: 
@@ -89,14 +66,16 @@ def folders():
 		except:
 			print(directories[i]+' folder exists')
 
+### copies input files to backup
 def backup():
 	if args.tpr:
 		copyfile(args.p, location+'/setup_files_'+timestamp+'/topol.top')
 		copyfile(args.mdp, location+'/setup_files_'+timestamp+'/md.mdp')
 		copyfile(args.n, location+'/setup_files_'+timestamp+'/index.ndx')
 
+### runs gromacs commands
 def gromacs(cmd):
-	print('\nrunning gromacs: \n '+cmd)
+	print('\nrunning gromacs: \n '+cmd+'\n')
 	output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	err, out = output.communicate()
 	exitcode = output.returncode
@@ -107,148 +86,139 @@ def gromacs(cmd):
 		checks = open('gromacs_outputs'+'_'+timestamp, 'a')
 	checks.write(out)
 
+### collects final CV position from grompp
 def final(cmd):
-	print('\ncollecting final reaction coordinate')
 	output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = output.communicate()
 	out=out.decode("utf-8")
 	out.splitlines()
 	return out.splitlines()
 
+### sets up pmf windows
 def setup():
 	print('\ninitialising setup')
-	folders()
-	pull=get_pull()
-	if args.start == None:
+	folders()							##	makes folder directories
+	pull=get_pull()						##	gets CV coordinates
+	if args.start == None:				##	selection of start point
 		start_pull=min(pull[1])
 	else:
 		start_pull=args.start
-	if args.end == None:
+	if args.end == None:				## selection of end point
 		end_pull=max(pull[1])
 	else:
 		end_pull=args.end
+	print(start_pull, end_pull)			
 	react_coord_proposed, react_coord_init=[],[]
-	end, proposed, actual = get_conformation(start_pull, end_pull, args.int, args.offset, pull)
-	for i in range(len(proposed)):
-		react_coord_proposed.append(proposed[i])
-		react_coord_init.append(actual[i])
-	react_coord_final=equilibrate(args.offset, end)
-	return react_coord_proposed, react_coord_init, react_coord_final 
+	end, react_coord_proposed, react_coord_init = get_conformation(start_pull, end_pull, args.offset, pull,react_coord_proposed, react_coord_init) ## gets conformations from pull trajectory
+	react_coord_final=equilibrate(args.offset, end)			##	equilibrates umbrella windows 
+	return react_coord_proposed, react_coord_init, react_coord_final		##	returns CVs
 
 def equilibrate(offset, offset_end):
-	if args.tpr:
+	pool = mp.Pool(mp.cpu_count())
+	if not args.tpronly:
 		if args.min:
 			make_min()
-			print('\nmaking minimised windows _test')
-			for i in range(offset+1, offset_end+1):
+			print('\nmaking minimised windows')
+			for i in range(offset+1, offset_end+1):		##	makes individual window folders
 				try: 
 					os.makedirs(directories[2]+'/window_'+sign+str(i))
 				except:
 					print('minimise folder exists')
-				gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -o '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+			pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n \
+			+' -maxwarn 2 -c '+directories[1]+'/window_'+str(i)+'.pdb -o '+directories[2]+'/window_'+str(i)+'/window_'+str(i)) \
+			 for i in range(offset+1, offset_end+1)]).get()			## minimisation grompp parallised
+			pool.join
 			cwd=os.getcwd()
-			for i in range(offset+1, offset_end+1):
+			for i in range(offset+1, offset_end+1):				##	changes to minimised directory and runs mdrun 
 				os.chdir(directories[2]+'/window_'+sign+str(i))
-				gromacs(gmx+' mdrun -v -deffnm window_'+sign+str(i))
+				gromacs(gmx+' mdrun -v -nt 10 -deffnm window_'+sign+str(i))			
 				os.chdir(cwd)
-			print('\nmaking umbrellas windows')
-	for i in range(offset+1, offset_end+1):
-		try: 
-			os.makedirs(directories[3]+'/window_'+sign+str(i))
-		except:
-			print('windows folder exists') 
+	if args.tpr:
+		print('\nmaking umbrellas windows')				##	makes individual window folders
+		for i in range(offset+1, offset_end+1):
+			try: 
+				os.makedirs(directories[3]+'/window_'+sign+str(i))
+			except:
+				print('windows folder exists') 
 
 		if args.min:
-			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -r '+directories[2]+'/window_'+sign+str(i)+'/window_'+sign+str(i)+'.gro -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))
+			pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+			+' -maxwarn 2 -c '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -r '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -o '\
+			+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i)) for i in range(offset+1, offset_end+1)])			## makes umbrella windows from minimised frames
+			pool.join
 		else:	
-			gromacs(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+directories[1]+'/window_'+sign+str(i)+'.pdb -r '+directories[1]+'/window_'+sign+str(i)+'.pdb  -o '+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i))					
-		
+			pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+			+' -maxwarn 2 -c '+directories[1]+'/window_'+str(i)+'.pdb -r '+directories[1]+'/window_'+str(i)+'.pdb  -o '+directories[3]+'/window_'\
+			+str(i)+'/window_'+str(i)) for i in range(offset+1, offset_end+1)])					##	## makes umbrella windows from non-minimised frames
+			pool.join
+	###	sorts out frame ordering
+	window=final('grep /umbrella_windows/windows/window_ '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | grep grompp | awk \'{print substr($0,length($0),1)} \'')
+	CV = final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
+	final_CV=np.stack((window, CV),axis=-1)
+	final_CV=np.sort(final_CV, axis=0)
+	return final_CV[:,1]
 
-	return final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
-
-def get_conformation(start, end, interval, offset, pull): 
-	print('\nsetting up umbrella window coordinates')
-	# folders()
+### gets frames from pull 
+def get_conformation(start, end, offset, pull,react_coord_proposed, react_coord_init): 
+	pool = mp.Pool(mp.cpu_count())
+	# print('\nsetting up umbrella window coordinates')
 	frametime, distance, dist =[], [], []
-	drange=np.arange(start,end,interval)
-	if start==end:
+	if start<=end:
+		drange=np.arange(start,end,args.int)	##	gets umbrella range
+	else:
+		drange=np.arange(end,start,args.int)
+	if start==end:							##	if only 1 frame
 		drange=[start]
-	for j in range(len(drange)):
-		if min(pull[1]) <= drange[j] <= max(pull[1]): 
-			distance.append(min(pull[1], key=lambda x:abs(x-drange[j])))
-			frametime.append(pull[0][pull[1].index(min(pull[1], key=lambda x:abs(x-drange[j])))])
-			dist.append(drange[j])
-	offsetnew=offset
-	print(len(frametime))
-	for x in range(len(frametime)):
-		if not args.tpronly:
-			gromacs('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(frametime[x])+' -e '+str(frametime[x])+' -o umbrella_windows/frames/window_'+sign+str(x+1+offset)+'.pdb')
-		offsetnew=x+1+offset
-	return offsetnew, np.around(dist, decimals=3), np.around(distance, decimals=3)
+	for CV in drange:					##	gets frametime and CV closest to suggested value
+			if min(pull[1]) <= CV <= max(pull[1]): 
+				react_coord_init.append(np.around(min(pull[1], key=lambda x:abs(x-CV)), decimals=3))
+				frametime.append(pull[0][pull[1].index(min(pull[1], key=lambda x:abs(x-CV)))])
+				react_coord_proposed.append(np.around(CV, decimals=3))
+	if not args.tpronly:   ### runs trjconv to get frames uses multiprocessing
+		pool.map(gromacs, [('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(ftime)+' -e '+str(ftime)+' -o umbrella_windows/frames/window_'\
+			+str(x+1+offset)+'.pdb') for x,ftime in enumerate(frametime)])
+		pool.join
+	offsetnew=len(frametime)+offset
+	return offsetnew, react_coord_proposed, react_coord_init
 
+### reads in histograms
 def get_histograms():
 	print('\ngetting histograms from: '+args.hist)
 	try:
 		histograms=np.genfromtxt(args.hist, autostrip=True, comments='@',skip_header=13)
 	except:
 		sys.exit("Cannot find Histogram file")
-	hist_sum=(histograms[:,1:].sum(axis=1))/np.max(histograms[:,1:].sum(axis=1))
-	hist_rel=histograms[:,1:]/np.max(histograms[:,1:])
-	overlap_cutoff=np.mean(np.max(hist_rel))*0.1 ################################################### 10% of total hisgram height discarded
+	hist_sum=(histograms[:,1:].sum(axis=1))/np.max(histograms[:,1:].sum(axis=1))		##	gives the sum of histograms relative to max sum
+	hist_rel=histograms[:,1:]/np.max(histograms[:,1:])									##	makes histograms relative to maximum
+	overlap_cutoff=np.mean(np.max(hist_rel))*0.1 										##	10% of total hisgram height discarded
 	overlap=[]
-	for i in range(len(histograms[0:,1:])):
+	for i in range(len(histograms[0:,1:])):												##	provides overlap count if there is a overlap above cutoff
 		overlap.append(np.count_nonzero(hist_rel[i] > overlap_cutoff))
-	return histograms[:,0], histograms[:,1:],hist_sum, overlap_cutoff, overlap, hist_rel
+	return histograms[:,0], histograms[:,1:],hist_sum, overlap_cutoff, np.array(overlap), hist_rel
 
+### fills in gaps from the histograms
 def fill_gaps():
 	print('\nfilling in gaps in PMF')
-	folders()
-	coord, histograms,histogram_sum, overlap_cutoff, overlap, histogram_rel=get_histograms()
-	pull=get_pull()
+	folders()  																						##	makes_folders
+	coord, histograms,histogram_sum, overlap_cutoff, overlap, histogram_rel=get_histograms()		##	gets histogram data
+	pull=get_pull()																					##	gets pull information
 	react_coord_proposed, react_coord_init=[],[]
-	count=0
-	start, end=0,0
-	done, pull_check, initial, check=False, True,True,True
 	initial_offset, offset=args.offset, args.offset
-	for i in range(0, len(coord)):
-		if overlap[i] < 3 or histogram_sum[i] <= np.mean(histogram_sum)*0.25:################################################### 25% of total hisgram height 
-			if args.dir==True:
-				colvar=coord[i]*-1
-			else:
-				colvar=coord[i]
-			if colvar >= 0:
-				count+=1
-				if check: 
-					start=colvar
-					initial=i
-					check=False
-				else:
-					if i != initial+1 and count>=2:
-						done=True					
-					if i == initial+1 and count>=2:
-						end=colvar
-						initial=i
-					if i != initial+1 and count==1:
-						initial=i
-					if done==True or i == len(coord)-1:
-						if count>=3:
-							if args.dir==True:
-								offset, proposed, actual = get_conformation( end, start, args.int, offset, pull )
-							else:
-								offset, proposed, actual = get_conformation(start, end, args.int, offset, pull )
-							
-							for i in range(len(proposed)):
-								react_coord_proposed.append(proposed[i])
-								react_coord_init.append(actual[i])
-						elif count ==2:
-							offset, proposed, actual = get_conformation(start, start, args.int, offset, pull )
-							for i in range(len(proposed)):
-								react_coord_proposed.append(proposed[i])
-								react_coord_init.append(actual[i])
-						count=1
-						done=False
-						initial=i
-						start=colvar
+	coord_fill = np.where(np.logical_and(np.logical_and(coord>np.min(pull[1]),coord<np.max(pull[1])),np.logical_or(overlap < 3, histogram_sum <= np.mean(histogram_sum)*0.25)))
+
+	cv_start=True
+	for i, cv in enumerate(coord[coord_fill]):
+		if cv_start==True:
+			cv_initial=cv 
+			cv_end=cv
+			cv_start=False
+		if cv_initial-args.int <= cv <= cv_initial+args.int:
+			cv_end=cv
+		else:
+			cv_start=True
+			offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull, react_coord_proposed, react_coord_init)
+	if cv_start==False:
+		offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull,react_coord_proposed, react_coord_init)
 	react_coord_final=equilibrate(args.offset, offset)
 	return react_coord_proposed, react_coord_init, react_coord_final
 
@@ -283,63 +253,57 @@ def plot_pmf():
 	histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel=get_histograms()
 	arb_cutoff=np.mean(hist_sum)*0.25
 	### histogram end###
-	### pmf start ###
-	try:
-		pmf_current=np.genfromtxt(args.pmf, autostrip=True, comments='@',skip_header=13)
-	except:
-		sys.exit("Cannot find pmf file")
-
-	if np.isfinite(pmf_current[:,1]).any()==False:
-		sys.exit('Your data is NaN, you most likely have a empty histogram')
-	pmf_current[:,1]=set_to_zero(pmf_current[:,1])
-	# other_pmf=False
-	# other_pmf = ask_yes_no('Do you wish to overlay another pmf:  ')
-	plots_land= ask_integer('how many pmfs do you wish to plot (only landscape):  ')
-	if plots_land	>1:
-		extra_lands = [[] for x in range(plots_land)]
-		for plot_num in range(0,plots_land-1):
-			extra_pmf_file = str(input('\nenter absolute location of pmf number '+str(plot_num+2)+': '))
-			try:
-				extra_lands[plot_num]=np.genfromtxt(extra_pmf_file, autostrip=True, comments='@',skip_header=13)
-			except:
-				sys.exit("Cannot find pmf file")
-			if np.isfinite(extra_lands[plot_num][:,1]).any()==False:
-				sys.exit('Your data is NaN, you most likely have a empty histogram in your set')
-			extra_lands[plot_num][:,1]=set_to_zero(extra_lands[plot_num][:,1])
-	### pmf end ###
 
 	step_y= ask_number('PMF tick interval length on the Y axis [eg 10]:  ') ## y axis tick interval
 
-	### min max start ###
-	min_x, max_x, step_x=np.round(min(pmf_current[:,0]), 2)-0.25, np.round(max(pmf_current[:,0]), 2)+0.25, 1
-	try:
-		min_y, max_y = [float(x) for x in input("\nmin and max Y (press enter to use defaults) :  ").split()]
-		print(min_y, max_y)
-	except:
-		print("\ndefault values used")
-		min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
-		print(min_y, max_y)
-	### min max end ###
 
+### plotting header
 	rcParams['axes.linewidth']=3
 	figure(1, figsize=(10,10))
 	# #energy landscape
 	subplot(4,1,1)
 	title('PMF',  fontproperties=font1, fontsize=15,y=1.18)
 
-	plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')	
-	if len(pmf_current[0]) == 3:
-		fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
-	if plots_land	>1:
-		for plot_num in range(0,plots_land-1):
-			plot(extra_lands[plot_num][:,0],extra_lands[plot_num][:,1], linewidth=3, label='PMF '+str(plot_num+2))#, color='blue')
-			if len(extra_lands[plot_num][0]) == 3:
-				fill_between(extra_lands[plot_num][:,0],extra_lands[plot_num][:,1]-extra_lands[plot_num][:,2], extra_lands[plot_num][:,1]-extra_lands[plot_num][:,2], alpha=0.3, facecolor='black')	
+	for pmf_number, pmf in enumerate(args.pmf):
+		### pmf plot start ###
+		try:
+			pmf_current=np.genfromtxt(pmf, autostrip=True, comments='@',skip_header=13)
+		except:
+			sys.exit("Cannot find pmf file")
+
+		if np.isfinite(pmf_current[:,1]).any()==False:
+			sys.exit('Your data is NaN, you most likely have a empty histogram')
+		pmf_current[:,1]=set_to_zero(pmf_current[:,1])
+
+	### pmf plot end ###
+		### min max start ###
+		if pmf_number == 0:
+			
+			min_x, max_x, step_x=np.round(min(pmf_current[:,0]), 2)-0.25, np.round(max(pmf_current[:,0]), 2)+0.25, 1
+			try:
+				min_y, max_y = [float(x) for x in input("\nmin and max Y (press enter to use defaults) :  ").split()]
+				print(min_y, max_y)
+			except:
+				print("\ndefault values used")
+				min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
+				print(min_y, max_y)
+		### min max end ###
+
+
+			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' $\pm$ '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')	
+			if len(pmf_current[0]) == 3:
+				fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
+		else:
+			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' $\pm$ '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
+			if len(pmf_current[0]) == 3:
+				fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')	
 	xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=15);yticks(np.arange(-500,500,step_y), fontproperties=font1, fontsize=15)
 	ylim(min_y, max_y);xlim(min_x,max_x)
 	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right=False, top=False)
 	xlabel('Distance (nm)', fontproperties=font2,fontsize=15);ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=15) 
-	legend(prop={'size': 10}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=plots_land, mode="expand", borderaxespad=0.)
+	legend(prop={'size': 10}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=len(args.pmf), mode="expand", borderaxespad=0.)
 	# Sum of histograms
 	subplot(4,1,2)
 	title('Normalised histogram sum',  fontproperties=font1, fontsize=15,y=1)
@@ -444,9 +408,9 @@ def pull_concat():
 			print(str(i),'\t\t\t', len(files_range), '\t SKIPPED')
 	return
 
-def run_wham():
-	core = str(ask_integer('what core would you like to run this on 0-11: '))
-	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
+# def run_wham():
+# 	core = str(ask_integer('what core would you like to run this on 0-11: '))
+# 	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
 
 parser = argparse.ArgumentParser()
 
@@ -464,7 +428,7 @@ parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0
 parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
 parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
 parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
-parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str)
+parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
 parser.add_argument('-dir', help='direction default (positive)', action='store_true')
 parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
@@ -474,7 +438,6 @@ args = parser.parse_args()
 options = vars(args)
 timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
 
-
 #flags to change if needed
 
 gmx='gmx'
@@ -482,12 +445,6 @@ location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to chang
 #location = 'xxx/xxx/xxx/xxx'
 directories=[location,location+'/frames', location+'/minimised', location+'/windows',location+'/analysis',location+'/setup_files_'+timestamp]
 
-
-
-if args.dir==True:
-	sign='-'
-else:
-	sign=''
 if args.func == 'setup':
 	correct = check_arguments(['pull', 'int', 'offset'])
 	if args.tpr:
