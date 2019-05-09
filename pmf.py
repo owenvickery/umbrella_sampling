@@ -288,18 +288,17 @@ def plot_pmf():
 				min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
 				print(min_y, max_y)
 		### min max end ###
-			energy_minima=np.round(min(pmf_current[:,1]), 2)
+			energy_minima=np.round(min(pmf_current[:,1]), 0)
 			energy_minima_error=0
 
 			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
-			
 			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')	
 			if len(pmf_current[0]) == 3:
 				fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
 				energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
 			energy_time.append([energy_minima, energy_minima_error])
 		else:
-			energy_minima=np.round(min(pmf_current[:,1]), 2)
+			energy_minima=np.round(min(pmf_current[:,1]), 0)
 			energy_minima_error=0
 			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
 			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
@@ -355,7 +354,11 @@ def plot_pmf():
 	errorbar(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0], yerr=energy_time[:,1], color='red', zorder=1)
 	plot(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0],'o',color='k') 
 
-	ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5)
+	ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5);xlim(0,len(energy_time[:,0])*timestep+(2*timestep))
+	# ylim(np.min(energy_time[:,0])-5,0);xlim(0,len(energy_time[:,0])*timestep+(2*timestep))
+
+	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right=False, top=False)
+
 	xlabel('time (ns)', fontproperties=font2,fontsize=15);ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=15) 
 
 	savefig('energy_landscape_error_'+timestamp+'.png', dpi=300)
