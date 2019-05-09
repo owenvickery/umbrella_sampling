@@ -14,13 +14,13 @@ import multiprocessing as mp
 def ask_number(question):
 	while True:
 		try:
-			integer = float(input("\n"+question))
+			number = float(input("\n"+question))
 			break
 		except KeyboardInterrupt:
 			sys.exit('\nInterrupted')
 		except:
 			print("Oops!  That was not a number.  Try again...")
-	return integer
+	return number
 
 ### checks whether all arguements are present ###
 def check_arguments(arguments):
@@ -256,10 +256,10 @@ def plot_pmf():
 
 	step_y= ask_number('PMF tick interval length on the Y axis [eg 10]:  ') ## y axis tick interval
 
-
+	energy_time=[]				## collects energy minima for timecourse
 ### plotting header
 	rcParams['axes.linewidth']=3
-	figure(1, figsize=(10,10))
+	figure(1, figsize=(10,20))
 	# #energy landscape
 	subplot(4,1,1)
 	title('PMF',  fontproperties=font1, fontsize=15,y=1.18)
@@ -288,17 +288,25 @@ def plot_pmf():
 				min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
 				print(min_y, max_y)
 		### min max end ###
+			energy_minima=np.round(min(pmf_current[:,1]), 2)
+			energy_minima_error=0
 
-
-			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' $\pm$ '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+			
 			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')	
 			if len(pmf_current[0]) == 3:
 				fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
+				energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
+			energy_time.append([energy_minima, energy_minima_error])
 		else:
-			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' $\pm$ '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+			energy_minima=np.round(min(pmf_current[:,1]), 2)
+			energy_minima_error=0
+			print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
 			plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
 			if len(pmf_current[0]) == 3:
 				fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')	
+				energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
+			energy_time.append([energy_minima, energy_minima_error])
 	xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=15);yticks(np.arange(-500,500,step_y), fontproperties=font1, fontsize=15)
 	ylim(min_y, max_y);xlim(min_x,max_x)
 	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right=False, top=False)
@@ -334,6 +342,23 @@ def plot_pmf():
 	xlabel('Distance (nm)', fontproperties=font2,fontsize=15);ylabel('Counts', fontproperties=font2,fontsize=15) 
 
 	subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
+	savefig('energy_landscape'+timestamp+'.png', dpi=300)
+
+	figure(2, figsize=(10,10))
+	energy_time=np.array(energy_time)
+	timestep=1
+	if len(energy_time) > 1:
+		timestep=ask_number('what is the timestep? ')
+	# #energy landscape
+	title('PMF timecourse',  fontproperties=font1, fontsize=15,y=1.18)
+	# plot(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0], linewidth=3, color='blue', zorder=1)
+	errorbar(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0], yerr=energy_time[:,1], color='red', zorder=1)
+	plot(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0],'o',color='k') 
+
+	ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5)
+	xlabel('time (ns)', fontproperties=font2,fontsize=15);ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=15) 
+
+	savefig('energy_landscape_error_'+timestamp+'.png', dpi=300)
 
 	show()
 
@@ -406,7 +431,6 @@ def pull_concat():
 					em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
 		else:
 			print(str(i),'\t\t\t', len(files_range), '\t SKIPPED')
-	return
 
 # def run_wham():
 # 	core = str(ask_integer('what core would you like to run this on 0-11: '))
@@ -433,7 +457,6 @@ parser.add_argument('-hist', help='location of histogram and name if used with w
 parser.add_argument('-dir', help='direction default (positive)', action='store_true')
 parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
 parser.add_argument('-current', help='to concat in current directory', action='store_true')
-
 args = parser.parse_args()
 options = vars(args)
 timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
@@ -444,6 +467,9 @@ gmx='gmx'
 location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to change location to a absolute path
 #location = 'xxx/xxx/xxx/xxx'
 directories=[location,location+'/frames', location+'/minimised', location+'/windows',location+'/analysis',location+'/setup_files_'+timestamp]
+
+
+
 
 if args.func == 'setup':
 	correct = check_arguments(['pull', 'int', 'offset'])
