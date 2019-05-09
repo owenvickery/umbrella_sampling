@@ -121,7 +121,7 @@ def equilibrate(offset, offset_end):
 			print('\nmaking minimised windows')
 			for i in range(offset+1, offset_end+1):		##	makes individual window folders
 				try: 
-					os.makedirs(directories[2]+'/window_'+sign+str(i))
+					os.makedirs(directories[2]+'/window_'+str(i))
 				except:
 					print('minimise folder exists')
 			pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n \
@@ -130,21 +130,21 @@ def equilibrate(offset, offset_end):
 			pool.join
 			cwd=os.getcwd()
 			for i in range(offset+1, offset_end+1):				##	changes to minimised directory and runs mdrun 
-				os.chdir(directories[2]+'/window_'+sign+str(i))
-				gromacs(gmx+' mdrun -v -nt 10 -deffnm window_'+sign+str(i))			
+				os.chdir(directories[2]+'/window_'+str(i))
+				gromacs(gmx+' mdrun -v -nt 10 -deffnm window_'+str(i))			
 				os.chdir(cwd)
 	if args.tpr:
 		print('\nmaking umbrellas windows')				##	makes individual window folders
 		for i in range(offset+1, offset_end+1):
 			try: 
-				os.makedirs(directories[3]+'/window_'+sign+str(i))
+				os.makedirs(directories[3]+'/window_'+str(i))
 			except:
 				print('windows folder exists') 
 
 		if args.min:
 			pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
 			+' -maxwarn 2 -c '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -r '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -o '\
-			+directories[3]+'/window_'+sign+str(i)+'/window_'+sign+str(i)) for i in range(offset+1, offset_end+1)])			## makes umbrella windows from minimised frames
+			+directories[3]+'/window_'+str(i)+'/window_'+str(i)) for i in range(offset+1, offset_end+1)])			## makes umbrella windows from minimised frames
 			pool.join
 		else:	
 			pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
@@ -342,7 +342,7 @@ def plot_pmf():
 	xlabel('Distance (nm)', fontproperties=font2,fontsize=15);ylabel('Counts', fontproperties=font2,fontsize=15) 
 
 	subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
-	savefig('energy_landscape'+timestamp+'.png', dpi=300)
+	savefig('energy_landscape_'+timestamp+'.png', dpi=300)
 
 	figure(2, figsize=(10,10))
 	energy_time=np.array(energy_time)
