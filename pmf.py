@@ -439,6 +439,8 @@ def pull_concat():
 # 	core = str(ask_integer('what core would you like to run this on 0-11: '))
 # 	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
 
+start = time.time()
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-mdp', help='umbrella mdp file',metavar='md.mdp', type=str)
@@ -504,4 +506,6 @@ else:
 	sys.exit('Try again, enter  [-f setup, plot, fill or concat]')
 
 
+end = time.time()
 
+print('\nThis script took: '+str(np.round(end-start,1))+'s to run')
