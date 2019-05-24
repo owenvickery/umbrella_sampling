@@ -398,9 +398,6 @@ def results(miscs):
 	backup()
 			
 def pull_concat(window):
-	# print('\'window\'\t\'total part numbers\'')
-	# for i in range(int(args.start), int(args.end)+1):
-
 		files_range, time, pull = [], [], []
 		if args.current:
 			xvg_loc = './'
@@ -415,11 +412,9 @@ def pull_concat(window):
 			break
 
 		if len(files_range) == 1:
-			# print(str(window),'\t\t\t', len(files_range))
 			xvgs=len(files_range)
 			os.system('cp '+xvg_loc+files_range[0]+' window_'+str(window)+'_pullf_com.xvg')		
 		elif len(files_range) >= 2: 
-			# print(str(window),'\t\t\t', len(files_range))
 			xvgs=len(files_range)
 			for x in range(len(files_range)):
 				for line in open(xvg_loc+files_range[x], 'r').readlines():
@@ -436,7 +431,6 @@ def pull_concat(window):
 				for j in range(len(time_ord)):
 					em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
 		else:
-			# print(str(window),'\t\t\t', len(files_range), '\t SKIPPED')
 			xvgs=len(files_range)
 		return [window, xvgs]
 
@@ -505,9 +499,8 @@ elif args.func== 'concat':
 	if correct:
 		concatonated = pool.map(pull_concat, [(window) for window in range(int(args.start), int(args.end)+1)])			## makes umbrella windows from minimised frames
 		pool.join
-		print(concatonated)
 		np.array(concatonated).sort(axis=0)
-		print('window','\t', 'number of pull files')
+		print('\nwindow\ttotal part numbers')
 		for line in concatonated:
 			if line[1] != 0:
 				print(line[0], '\t', line[1])
