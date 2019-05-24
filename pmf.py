@@ -397,27 +397,30 @@ def results(miscs):
 			result_write.write(line+'\n')
 	backup()
 			
-def pull_concat():
-	print('\'window\'\t\'total part numbers\'')
-	for i in range(int(args.start), int(args.end)+1):
+def pull_concat(window):
+	# print('\'window\'\t\'total part numbers\'')
+	# for i in range(int(args.start), int(args.end)+1):
+
 		files_range, time, pull = [], [], []
 		if args.current:
 			xvg_loc = './'
 		else:
-			xvg_loc = '../windows/window_'+str(i)+'/'
+			xvg_loc = '../windows/window_'+str(window)+'/'
 		
 		for root, dirs, files in os.walk(xvg_loc):
 			for filename in files:
-				if 'window_'+str(i)+'.' in filename or 'window_'+str(i)+'_' in filename and not '_com' in filename:
+				if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
 					if 'pullf' in filename:
 						files_range.append(filename)
 			break
 
 		if len(files_range) == 1:
-			print(str(i),'\t\t\t', len(files_range))
-			os.system('cp '+xvg_loc+files_range[0]+' window_'+str(i)+'_pullf_com.xvg')		
+			# print(str(window),'\t\t\t', len(files_range))
+			xvgs=len(files_range)
+			os.system('cp '+xvg_loc+files_range[0]+' window_'+str(window)+'_pullf_com.xvg')		
 		elif len(files_range) >= 2: 
-			print(str(i),'\t\t\t', len(files_range))
+			# print(str(window),'\t\t\t', len(files_range))
+			xvgs=len(files_range)
 			for x in range(len(files_range)):
 				for line in open(xvg_loc+files_range[x], 'r').readlines():
 					if not line[0] in ['#', '@']:
@@ -429,11 +432,13 @@ def pull_concat():
 								break
 			if len(time) > 0:
 				time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
-				em = open('window_'+str(i)+'_pullf_com.xvg','w')
+				em = open('window_'+str(window)+'_pullf_com.xvg','w')
 				for j in range(len(time_ord)):
 					em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
 		else:
-			print(str(i),'\t\t\t', len(files_range), '\t SKIPPED')
+			# print(str(window),'\t\t\t', len(files_range), '\t SKIPPED')
+			xvgs=len(files_range)
+		return [window, xvgs]
 
 # def run_wham():
 # 	core = str(ask_integer('what core would you like to run this on 0-11: '))
@@ -495,9 +500,19 @@ elif args.func== 'plot':
 	if correct:
 		plot_pmf()
 elif args.func== 'concat':
+	pool = mp.Pool(mp.cpu_count())
 	correct = check_arguments(['start', 'end'])
 	if correct:
-		pull_concat()
+		concatonated = pool.map(pull_concat, [(window) for window in range(int(args.start), int(args.end)+1)])			## makes umbrella windows from minimised frames
+		pool.join
+		print(concatonated)
+		np.array(concatonated).sort(axis=0)
+		print('window','\t', 'number of pull files')
+		for line in concatonated:
+			if line[1] != 0:
+				print(line[0], '\t', line[1])
+			else:
+				print(line[0], '\t', 'SKIPPED')
 elif args.func== 'wham':
 	correct = check_arguments(['pmf', 'boot', 'start'])
 	if correct:
