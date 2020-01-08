@@ -40,6 +40,7 @@ Flags to use
       -tpronly    
       -current     
       -cutoff (int) 
+      -v
 
 
 This script is designed to follow on from your initial pull simulation.
