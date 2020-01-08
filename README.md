@@ -213,9 +213,12 @@ Also the energy minima is also plotted as a line graph.
 If you wish to check the convergence of the pmf with increasing simulation time.
 
 e.g. 
-    5-10 ns 
-    5-15 ns
-    5-20 ns
+
+  5-10 ns 
+
+  5-15 ns
+  
+  5-20 ns
 
 you can provide multiple bsres.xvg files to the -pmf flag. (each file should be separated by a space).
 
