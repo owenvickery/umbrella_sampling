@@ -6,6 +6,15 @@ DOI: 10.5281/zenodo.3592318
 
 ---------------------------------------------------------------------------------------
 
+                                        REQUIREMENTS
+
+Python v3 or higher
+Numpy
+
+---------------------------------------------------------------------------------------
+
+                                        FLAGS
+
 This script sets up and analyses umbrella sampling trajectories.
 
 Flags to use
@@ -108,7 +117,7 @@ if you wish to skip energy minimisation (flag -min).
 
 ---------------------------------------------------------------------------------------
 
-                                        WHAM analysis
+                                        WHAM ANALYSIS
 
 Once you have finished your initial PMF, you need to analyse it. Here the script can run a rudimentary analysis on your PMF. 
 
