@@ -434,9 +434,9 @@ def pull_concat(window):
 			xvgs=len(files_range)
 		return [window, xvgs]
 
-# def run_wham():
-# 	core = str(ask_integer('what core would you like to run this on 0-11: '))
-# 	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
+def run_wham():
+	core = str(ask_integer('what core would you like to run this on 0-11: '))
+	gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
 
 start = time.time()
 
@@ -458,7 +458,6 @@ parser.add_argument('-end', help='where to end on reaction coordinate',metavar='
 parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
 parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
-parser.add_argument('-dir', help='direction default (positive)', action='store_true')
 parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
 parser.add_argument('-current', help='to concat in current directory', action='store_true')
 args = parser.parse_args()
