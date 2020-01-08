@@ -19,25 +19,26 @@ This script sets up and analyses umbrella sampling trajectories.
 
 Flags to use
 
-  -h, --help         
-  -mdp (.mdp)        
-  -func (setup, plot, concat, wham, fill)             
-  -f (.xtc)         
-  -s (.tpr)          
-  -n (.ndx)          
-  -p (.top)          
-  -pull (.xvg)       
-  -offset (int)      
-  -tpr              
-  -min               
-  -int (float)      
-  -start (float)       
-  -end (float)   
-  -boot (int)     
-  -pmf (list)     
-  -hist (.xvg)      
-  -tpronly    
-  -current      
+      -h, --help         
+      -mdp (.mdp)        
+      -func (setup, concat, wham, plot, fill)             
+      -f (.xtc)         
+      -s (.tpr)          
+      -n (.ndx)          
+      -p (.top)          
+      -pull (.xvg)       
+      -offset (int)      
+      -tpr              
+      -min               
+      -int (float)      
+      -start (float)       
+      -end (float)   
+      -boot (int)     
+      -pmf (list)     
+      -hist (.xvg)      
+      -tpronly    
+      -current     
+      -cutoff (int) 
 
 
 This script is designed to follow on from your initial pull simulation.
@@ -68,7 +69,7 @@ the command line would look like:
     python pmf.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05
 
 
-If you wish to extend the PMF from 3 to 4, you can use the offset flag (e.g. if you have 100 windows already, enter 40. the script will write windows from 101 onwards (flag -offset 40)).
+If you wish to extend the PMF from 3 to 4, you can use the offset flag (e.g. if you have 40 windows already, enter 40. the script will write windows from 41 onwards (flag -offset 40)).
 
 e.g.
 
@@ -188,10 +189,11 @@ Histograms
 
 The red lines denote my level of quality I want in the PMF. 
 The normalised histogram sum has a cutoff of 20 %.
-The Histgram overlap has a cutoff of 3. 
+The Histgram overlap has a default cutoff of 3 (changed with flag -cutoff). 
 
 The flag -pmf provides the name of your energy landscape.
 The flag -hist provides the name of your histograms.
+The flag -cutoff allows the change of the overlap cutoff.
 
 e.g. 
 
@@ -234,7 +236,7 @@ Unless you have a simple system, you will get gaps between your umbrella windows
 Therefore this script will fill in the gaps using the same criteria from the analysis plot.
 
 The normalised histogram sum has a cutoff of 20 %.
-The Histgram overlap has a cutoff of 3. 
+The Histgram overlap has a default cutoff of 3 (changed with flag -cutoff). 
 
 To fill in the gaps in the umbrella windows coverage we will use a similar command as in the setup.  
 

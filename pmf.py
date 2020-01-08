@@ -204,7 +204,7 @@ def fill_gaps():
 	pull=get_pull()																					##	gets pull information
 	react_coord_proposed, react_coord_init=[],[]
 	initial_offset, offset=args.offset, args.offset
-	coord_fill = np.where(np.logical_and(np.logical_and(coord>np.min(pull[1]),coord<np.max(pull[1])),np.logical_or(overlap < 3, histogram_sum <= np.mean(histogram_sum)*0.25)))
+	coord_fill = np.where(np.logical_and(np.logical_and(coord>np.min(pull[1]),coord<np.max(pull[1])),np.logical_or(overlap < args.cutoff, histogram_sum <= np.mean(histogram_sum)*0.25)))
 
 	cv_start=True
 	for i, cv in enumerate(coord[coord_fill]):
@@ -325,7 +325,7 @@ def plot_pmf():
 	subplot(4,1,3)
 	title('Histogram overlap',  fontproperties=font1, fontsize=15,y=1)
 	plot(histt,overlap, linewidth=3, color='black')
-	plot([-100,100],[3,3], linewidth=3, color='red')
+	plot([-100,100],[args.cutoff,args.cutoff], linewidth=3, color='red')
 	xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=15);xlim(min_x,max_x)
 	yticks(np.arange(0,np.max(overlap), 2), fontproperties=font1, fontsize=15)
 	tick_params(axis='both', which='major', width=3, length=5, labelsize=15, direction='in', pad=10, right=False, top=False)
@@ -460,6 +460,8 @@ parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str
 parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
 parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
 parser.add_argument('-current', help='to concat in current directory', action='store_true')
+parser.add_argument('-cutoff', help='histogram overlap cutoff for filling and plotting', default=3, type=int)
+
 args = parser.parse_args()
 options = vars(args)
 timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
