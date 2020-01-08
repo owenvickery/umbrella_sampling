@@ -56,14 +56,14 @@ The pull reaction coordinate file has to be 2 columns time and CV.
 
 the command line would look like:
 
-python PMF.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05
+    python pmf.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05
 
 
 If you wish to extend the PMF from 3 to 4, you can use the offset flag (e.g. if you have 100 windows already, enter 40. the script will write windows from 101 onwards (flag -offset 40)).
 
 e.g.
 
-python PMF.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40
+    python pmf.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40
 
 The scipt will provide you with a overview of your PMF windows.
 
@@ -126,11 +126,11 @@ If you change to the analysis directory and run the following command.
 
 e.g. from windows directory
 
-    python PMF.py -func concat -start 1 -end 40 
+    python pmf.py -func concat -start 1 -end 40 
 
 e.g. in current directory
 
-    python PMF.py -func concat -start 1 -end 40 -current
+    python pmf.py -func concat -start 1 -end 40 -current
 
 
 
@@ -157,7 +157,8 @@ The flag -boot is the number of bootstraps to do.
 The flag -start is the amount of time to dicard as equilibration.
 
 e.g. 
-    python PMF.py -func wham -pmf bsres.xvg -boot 200 -start 5000
+
+    python pmf.py -func wham -pmf bsres.xvg -boot 200 -start 5000
 
 For some reason gmx wham runs equally well on 1 core as it does on all the cores. This allows you to run multiple whams simultaneously.
 Therefore the script will ask you which core to run on (note they cores start from 0)  .
@@ -184,12 +185,13 @@ The flag -pmf provides the name of your energy landscape.
 The flag -hist provides the name of your histograms.
 
 e.g. 
+
     python pmf.py -func plot -pmf bsres.xvg -hist histo.xvg
 
 you be asked various questions, reply with a numerical value or return.
 
-PMF tick interval length on the Y axis [eg 10]: 10
-min and max Y (press enter to use defaults) : 0 100      (min and max separated by a space)
+    PMF tick interval length on the Y axis [eg 10]: 10
+    min and max Y (press enter to use defaults) : 0 100      (min and max separated by a space)
 
 The plot will be saved as energy_landscape_(time_stamp).png
 Also the energy minima is also plotted as a line graph.
@@ -205,11 +207,12 @@ e.g.
 you can provide multiple bsres.xvg files to the -pmf flag. (each file should be separated by a space).
 
 e.g. 
+
     python pmf.py -func plot -pmf bsres_5-10.xvg bsres_5-15.xvg bsres_5-20.xvg -hist histo.xvg
 
 In this case you be asked a additional question. 
 
-what is the timestep? 5
+    what is the timestep? 5
 
 This sets the x axis of the line graph showing the energy minima over time.
 
@@ -230,7 +233,7 @@ However you need to provide the histogram file as well and the offset flag other
 
 e.g.
 
-    python PMF.py -func fill -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40 -hist umbrella_sampling/analysis/histo.xvg
+    python pmf.py -func fill -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40 -hist umbrella_sampling/analysis/histo.xvg
 
 Iterate over these steps until your have a coverged PMF.
 
