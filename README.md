@@ -80,41 +80,25 @@ Column 5 (F-S) is the final CV minus the selected CV
 Columm 6 is the window number for each CV used in the script
 
     proposed       selected         final           S-P              F-S         window
-
       0.5           0.5             0.510           0.0             0.01            40
-
       0.575         0.575           0.573           0.0             -0.002          41
-
       0.65          0.65            0.662           0.0             0.012           42
-
       0.725         0.726           0.736           0.001           0.01            43
-
       0.8           0.799           0.806           -0.001          0.007           44
 
 The output from this script is in the following format.
 
     | --    umbrella_windows
-
                 | --    setup_files_(timestamp)
-
                                 - collective variables, gromacs outputs, topology, mdp, index, em_out-[1..40]
-
                 | --    frames
-
                                 - window_[1..40].pdb
-
                 | --    minimised
-
                             | --   window_[1..40]
-
                                         | --    tpr, gro, edr, log
-
                 | --    windows
-
                             | --   window_[1..40]
-
                                         | --    production tpr
-
                 | --    analysis
 
 There are a couple of other flags for for more odd cases.
@@ -142,11 +126,11 @@ If you change to the analysis directory and run the following command.
 
 e.g. from windows directory
 
-python PMF.py -func concat -start 1 -end 40 
+    python PMF.py -func concat -start 1 -end 40 
 
 e.g. in current directory
 
-python PMF.py -func concat -start 1 -end 40 -current
+    python PMF.py -func concat -start 1 -end 40 -current
 
 
 
@@ -158,12 +142,12 @@ These files contain a single column of either the names of the tpr files of the 
 
 e.g.
 
-  tpr.dat               en.dat
-window_1.tpr    window_1_pullf_com.xvg
-window_2.tpr    window_2_pullf_com.xvg
-window_3.tpr    window_3_pullf_com.xvg
-window_4.tpr    window_4_pullf_com.xvg
-window_5.tpr    window_5_pullf_com.xvg
+      tpr.dat               en.dat
+    window_1.tpr    window_1_pullf_com.xvg
+    window_2.tpr    window_2_pullf_com.xvg
+    window_3.tpr    window_3_pullf_com.xvg
+    window_4.tpr    window_4_pullf_com.xvg
+    window_5.tpr    window_5_pullf_com.xvg
 
 
 The script can run wham for you, however it only uses the basic setting (This wham is run at 310K) so I would advise you to run it separately.
@@ -172,7 +156,8 @@ The flag -pmf provides the output file name of your PMF.
 The flag -boot is the number of bootstraps to do.
 The flag -start is the amount of time to dicard as equilibration.
 
-e.g. python PMF.py -func wham -pmf bsres.xvg -boot 200 -start 5000
+e.g. 
+    python PMF.py -func wham -pmf bsres.xvg -boot 200 -start 5000
 
 For some reason gmx wham runs equally well on 1 core as it does on all the cores. This allows you to run multiple whams simultaneously.
 Therefore the script will ask you which core to run on (note they cores start from 0)  .
@@ -198,7 +183,8 @@ The Histgram overlap has a cutoff of 3.
 The flag -pmf provides the name of your energy landscape.
 The flag -hist provides the name of your histograms.
 
-e.g. python pmf.py -func plot -pmf bsres.xvg -hist histo.xvg
+e.g. 
+    python pmf.py -func plot -pmf bsres.xvg -hist histo.xvg
 
 you be asked various questions, reply with a numerical value or return.
 
@@ -212,13 +198,14 @@ Also the energy minima is also plotted as a line graph.
 If you wish to check the convergence of the pmf with increasing simulation time.
 
 e.g. 
-5-10 ns 
-5-15 ns
-5-20 ns
+    5-10 ns 
+    5-15 ns
+    5-20 ns
 
 you can provide multiple bsres.xvg files to the -pmf flag. (each file should be separated by a space).
 
-e.g. python pmf.py -func plot -pmf bsres_5-10.xvg bsres_5-15.xvg bsres_5-20.xvg -hist histo.xvg
+e.g. 
+    python pmf.py -func plot -pmf bsres_5-10.xvg bsres_5-15.xvg bsres_5-20.xvg -hist histo.xvg
 
 In this case you be asked a additional question. 
 
@@ -243,7 +230,7 @@ However you need to provide the histogram file as well and the offset flag other
 
 e.g.
 
-python PMF.py -func fill -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40 -hist umbrella_sampling/analysis/histo.xvg
+    python PMF.py -func fill -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40 -hist umbrella_sampling/analysis/histo.xvg
 
 Iterate over these steps until your have a coverged PMF.
 
