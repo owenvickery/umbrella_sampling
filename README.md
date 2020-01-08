@@ -4,38 +4,38 @@ If you are using this script please acknowledge me (Dr Owen Vickery) and cite th
 
 DOI: 10.5281/zenodo.3592318
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
 This script sets up and analyses umbrella sampling trajectories.
 
 Flags to use
 
-  -h, --help         show this help message and exit
-  -mdp (.mdp)        umbrella mdp file
-  -func (setup, plot, concat, wham, fill)             what to do initial setup, plot, concat, wham or fill 
-  -f (.xtc)          xtc file for setup (eg your pull xtc)
-  -s (.tpr)          structure file for setup (use the pull.tpr)
-  -n (.ndx)          index file for the system
-  -p (.top)          topology file
-  -pull (.xvg)       pull file for setup
-  -offset (int)      window offset
-  -tpr               do not make tpr files
-  -min               switch off minisation
-  -int (float)       interval for umbrella windows (nm)
-  -start (float)       where to start on reaction coordinate
-  -end (float)         where to end on reaction coordinate
-  -boot (int)        number of bootstraps to run
-  -pmf (list)        location of PMF
-  -hist (.xvg)       location of histogram and name if used with wham
-  -tpronly           only makes tpr files default (False) requires energy minimised files
-  -current           to concat in current directory
+  -h, --help         
+  -mdp (.mdp)        
+  -func (setup, plot, concat, wham, fill)             
+  -f (.xtc)         
+  -s (.tpr)          
+  -n (.ndx)          
+  -p (.top)          
+  -pull (.xvg)       
+  -offset (int)      
+  -tpr              
+  -min               
+  -int (float)      
+  -start (float)       
+  -end (float)   
+  -boot (int)     
+  -pmf (list)     
+  -hist (.xvg)      
+  -tpronly    
+  -current      
 
 
 This script is designed to follow on from your initial pull simulation.
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
-                                                                                                SETUP
+                                        SETUP
 
 To setup a new PMF use the flag (-func setup). As this sets up all the umbrella windows the script requires all the files for running the grompp step.
 
@@ -68,41 +68,53 @@ python PMF.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/produ
 The scipt will provide you with a overview of your PMF windows.
 
 Column 1 (proposed) is the CV windows you choose.
+
 Column 2 (selected) is the CV windows selected by the script ( closest value to Col 1 )
+
 Column 3 (final) is the CV in the final production window
+
 Column 4 (S-P) is the selected CV minus the proposed CV
+
 Column 5 (F-S) is the final CV minus the selected CV
+
 Columm 6 is the window number for each CV used in the script
 
 proposed       selected         final           S-P              F-S         window
-  0.5           0.5             0.510           0.0             0.01            40
-  0.575         0.575           0.573           0.0             -0.002          41
-  0.65          0.65            0.662           0.0             0.012           42
-  0.725         0.726           0.736           0.001           0.01            43
-  0.8           0.799           0.806           -0.001          0.007           44
-  0.875         0.874           0.877           -0.001          0.003           45
-  0.95          0.95            0.960           0.0             0.01            46
-  1.025         1.025           1.033           0.0             0.008           47
-  1.1           1.099           1.104           -0.001          0.005           48
-  1.175         1.175           1.180           0.0             0.005           49
-  1.25          1.25            1.268           0.0             0.018           50
-  1.325         1.325           1.333           0.0             0.008           51
-  1.4           1.379           1.379           -0.021          0.0             52
 
+  0.5           0.5             0.510           0.0             0.01            40
+
+  0.575         0.575           0.573           0.0             -0.002          41
+
+  0.65          0.65            0.662           0.0             0.012           42
+
+  0.725         0.726           0.736           0.001           0.01            43
+
+  0.8           0.799           0.806           -0.001          0.007           44
 
 The output from this script is in the following format.
 
 | --    umbrella_windows
+
                 | --    setup_files_(timestamp)
+
                                 - collective variables, gromacs outputs, topology, mdp, index, em_out-[1..40]
+
                 | --    frames
+
                                 - window_[1..40].pdb
+
                 | --    minimised
+
                             | --   window_[1..40]
+
                                         | --    tpr, gro, edr, log
+
                 | --    windows
+
                             | --   window_[1..40]
+
                                         | --    production tpr
+
                 | --    analysis
 
 There are a couple of other flags for for more odd cases.
@@ -110,9 +122,9 @@ There are a couple of other flags for for more odd cases.
 If you do not wish to make the tpr files (flag -tpr), however you can make the tpr files only but this requires energy minimised structures (flag -tpronly).
 if you wish to skip energy minimisation (flag -min).
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
-                                                                                                WHAM analysis
+                                        WHAM analysis
 
 Once you have finished your initial PMF, you need to analyse it. Here the script can run a rudimentary analysis on your PMF. 
 
@@ -166,9 +178,9 @@ For some reason gmx wham runs equally well on 1 core as it does on all the cores
 Therefore the script will ask you which core to run on (note they cores start from 0)  .
 
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
-                                                                                                PLOTTING
+                                        PLOTTING
 
 Once you have your intial PMF and you need to run some basic quality control checks.
 
@@ -214,8 +226,9 @@ what is the timestep? 5
 
 This sets the x axis of the line graph showing the energy minima over time.
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                                                                                                GAPS
+---------------------------------------------------------------------------------------
+
+                                        GAPS
 
 Unless you have a simple system, you will get gaps between your umbrella windows.
 
