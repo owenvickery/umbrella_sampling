@@ -79,21 +79,21 @@ Column 5 (F-S) is the final CV minus the selected CV
 
 Columm 6 is the window number for each CV used in the script
 
-proposed       selected         final           S-P              F-S         window
+    proposed       selected         final           S-P              F-S         window
 
-  0.5           0.5             0.510           0.0             0.01            40
+      0.5           0.5             0.510           0.0             0.01            40
 
-  0.575         0.575           0.573           0.0             -0.002          41
+      0.575         0.575           0.573           0.0             -0.002          41
 
-  0.65          0.65            0.662           0.0             0.012           42
+      0.65          0.65            0.662           0.0             0.012           42
 
-  0.725         0.726           0.736           0.001           0.01            43
+      0.725         0.726           0.736           0.001           0.01            43
 
-  0.8           0.799           0.806           -0.001          0.007           44
+      0.8           0.799           0.806           -0.001          0.007           44
 
 The output from this script is in the following format.
 
-| --    umbrella_windows
+    | --    umbrella_windows
 
                 | --    setup_files_(timestamp)
 
