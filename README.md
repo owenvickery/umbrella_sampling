@@ -4,7 +4,7 @@ If you are using this script please acknowledge me (Dr Owen Vickery) and cite th
 
 DOI: 10.5281/zenodo.3592318
 
-										**SCRIPT OVERVIEW**
+					    **SCRIPT OVERVIEW**
                                         
 This script eases the setup up of Potential of Mean Force (PMF) windows in a reproducible manner. There are three main functions within the script: 
 
@@ -19,7 +19,7 @@ This script is designed to follow on from your initial pull simulation, which is
 
 **WARNING:** The two files must relate in a 1:1 fashion. 
 
-                                       	 **REQUIREMENTS**
+                                       	     **REQUIREMENTS**
 
 - Python v3 or higher
 - Numpy
