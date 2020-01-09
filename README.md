@@ -1,6 +1,6 @@
-UMBRELLA SAMPLING README
+**UMBRELLA SAMPLING README**
 
-If you are using this script please acknowledge me (Dr Owen Vickery) and cite the following DOI please.
+If you are using this script please acknowledge me (Dr Owen Vickery) and cite the following DOI.
 
 DOI: 10.5281/zenodo.3592318
 
