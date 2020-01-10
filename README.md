@@ -77,23 +77,22 @@ Optional flags
 - tpr   switches off production tpr production
 - tpronly   only makes production tpr files (requires energy minimised files)
 
-Using the following directory structure as a example:
+Using the following directory structure as an example:
 
     | --    BUILD
               - topol.top, index.ndx, production.mdp
     | --    PULL
               - pull_pullx.xvg, pull.tpr, pull.xtc
                 
-To setup PMF between 1 and 3 nm with a window spacing of 0.05 nm.
 
-the command line would look like:
+To setup the PMF between 1 and 3 nm with a window spacing of 0.05 nm, the command line would look like:
 
     python pmf.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pull_pullx.xvg -start 1 -end 3 -int 0.05
 
 
-If you wish to extend the PMF from 3 to 4, you can use the offset flag (e.g. if you have 40 windows already, enter 40. the script will write windows from 41 onwards (flag -offset 40)).
+If you wish to extend the PMF from 3 to 4 nm, you can use the offset flag (e.g. if you have 40 windows already, enter 40; the script will write windows from 41 onwards (flag -offset 40)).
 
-e.g.
+For example.
 
     python pmf.py -func setup -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 3 -end 4 -int 0.05 -offset 40
 
@@ -142,8 +141,7 @@ Here the script can run a rudimentary analysis on your PMF.
 
 The script copies the pullf files from the windows directory into the analysis folder. If you have multiple part files within the windows directory they are concatonated together.
 
-1st you need to fetch all the pullf files from the windows directory. The script can do this for you.
-
+First you need to fetch all the pullf files from the windows directory. The script can do this for you.
 
 This command needs to be run from within the analysis folder.
 
@@ -151,9 +149,9 @@ If you wish to concatonate the pullf files within the current working directory 
 
 Flags 
 
-- start   window start number (int)
-- end       window end number (int)
-- current   concatonate in working dir (optional)
+- -start   window start number (int)
+- -end       window end number (int)
+- -current   concatonate in working dir (optional)
 
 
 e.g. concatonate and copy from windows directory
@@ -167,9 +165,9 @@ e.g. concatonate files from the current working directory
 
 Your analysis folder should now contain the window_\*\_pullf_com.xvg and window_\*.tpr files from the windows directory.
 
-To analysis your create your landscape with gmx wham you need the two files (please use these names): tpr.dat and en.dat 
+To create your landscape with gmx wham you need the two files (please use these names): tpr.dat and en.dat. 
 
-These files contain a single column of either the names of the tpr files of the pullf files. Note that they have to be in the same order.
+These files contain a single column of either the names of the tpr files or the names of the pullf files. Note that they have to be in the same order.
 
 e.g.
 
@@ -181,17 +179,19 @@ e.g.
     window_5.tpr  |  window_5_pullf_com.xvg
 
 
-The script can run wham for you, however it only uses the basic setting (This wham is run at 310K) so I would advise you to run it separately.
+The script can run wham for you, however it only uses the basic setting (this wham is run at 310 K) so I would advise you to run it separately.
 
-The flag -pmf provides the output file name of your PMF.
-The flag -boot is the number of bootstraps to do.
-The flag -start is the amount of time to dicard as equilibration.
+Flags
+
+- -pmf provides the output file name of your PMF.
+- -boot is the number of bootstraps to do.
+- -start is the amount of time to discard as equilibration.
 
 e.g. 
 
     python pmf.py -func wham -pmf bsres.xvg -boot 200 -start 5000
 
-For some reason gmx wham runs equally well on 1 core as it does on all the cores. This allows you to run multiple whams simultaneously and doesn't slow you computer down. Therefore the script will ask you which core to run on (note they cores start from 0).
+For some reason gmx wham runs equally well on 1 core as it does on all the cores. This allows you to run multiple whams simultaneously and doesn't slow your computer down. Therefore the script will ask you which core to run on (note the cores start from 0).
 
 If you wish to run gmx wham outside the script add the following prefix to the gromacs command.
 
@@ -207,17 +207,16 @@ Once you have your initial PMF, you need to run some basic quality control check
 
 Here the script will provide:
 
-Energy landscape and error (if calculated)
-
+- Energy landscape and error (if calculated)
 - Normalised histogram sum
 - Histogram overlap
 - Histograms
 
 Flags
 
-- pmf      name of your energy landscape.
-- hist     name of your histograms.
-- cutoff   overlap cutoff adjustment.
+- -pmf      name of your energy landscape.
+- -hist     name of your histograms.
+- -cutoff   overlap cutoff adjustment.
 
 e.g. 
 
@@ -228,7 +227,7 @@ You will be asked various questions, reply with a numerical value or return.
     PMF tick interval length on the Y axis [eg 10]: 10
     min and max Y (press enter to use defaults) : 0 100      (min and max separated by a space)
 
-The plot will be saved as energy\_landscape\_(time_stamp).png
+The plot will be saved as 'energy\_landscape\_(time_stamp).png'.
 
 The minimum quality level of the landscape is denoted by the red line.
 
@@ -263,7 +262,7 @@ Unless you have a simple system, you will get gaps between your umbrella windows
 Therefore this script will fill in the gaps using the same criteria from the analysis plot.
 
 The normalised histogram sum has a cutoff of 20 %.
-The Histgram overlap has a default cutoff of 3 (changed with flag -cutoff). 
+The histgram overlap has a default cutoff of 3 (changed with flag -cutoff). 
 
 To fill in the gaps in the umbrella windows coverage we will use a similar command as in the setup.  
 
