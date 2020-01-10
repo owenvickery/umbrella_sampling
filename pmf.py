@@ -11,6 +11,20 @@ from time import gmtime, strftime
 from shutil import copyfile
 import multiprocessing as mp
 
+###############################
+
+timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
+
+#flags to change if needed
+
+gmx='gmx'
+location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to change location to a absolute path
+
+#location = 'xxx/xxx/xxx/xxx'
+
+directories=[location,location+'/frames', location+'/minimised', location+'/windows',location+'/analysis',location+'/setup_files_'+timestamp]
+
+###############################
 def ask_number(question):
     while True:
         try:
@@ -492,17 +506,6 @@ parser.add_argument('-v', action="count", default=0, help="increase output verbo
 
 args = parser.parse_args()
 options = vars(args)
-timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
-
-#flags to change if needed
-
-gmx='gmx'
-location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to change location to a absolute path
-#location = 'xxx/xxx/xxx/xxx'
-directories=[location,location+'/frames', location+'/minimised', location+'/windows',location+'/analysis',location+'/setup_files_'+timestamp]
-
-
-
 
 if args.func == 'setup':
     correct = check_arguments(['pull', 'int'])
