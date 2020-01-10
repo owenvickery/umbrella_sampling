@@ -1,10 +1,10 @@
-                            		**UMBRELLA SAMPLING README**
+                                **UMBRELLA SAMPLING README**
 
 If you are using this script please acknowledge me (Dr Owen Vickery) and cite the following DOI.
 
 DOI: 10.5281/zenodo.3592318
 
-					    **SCRIPT OVERVIEW**
+                                    **SCRIPT OVERVIEW**
                                         
 This script eases the setup up of Potential of Mean Force (PMF) windows in a reproducible manner. There are three main functions within the script: 
 
@@ -19,18 +19,18 @@ This script is designed to follow on from your initial pull simulation, which is
 
 **WARNING:** The two files must relate in a 1:1 fashion. 
 
-                                       	     **REQUIREMENTS**
+                                     **REQUIREMENTS**
 
 - Python v3 or higher
 - Numpy
 - GROMACS v5 or higher
 
 
-                                        	**FLAGS**
+                                        **FLAGS**
 
 Available flags for use.
 
-               
+<pre>
       -mdp (.mdp)        
       -func (setup, concat, wham, plot, fill)             
       -f (.xtc)         
@@ -52,11 +52,10 @@ Available flags for use.
       -cutoff (int) 
       -v
       -h
+</pre>
 
-\
 
-
-                                        	**SETUP**
+                                          **SETUP**
 
 To setup the initial PMF use the flag (-func setup).
 
@@ -71,12 +70,12 @@ This section requires the following files to work correctly.
 
 Optional flags 
 
-- int 		window interval (default 0.05 nm)
-- start 	collective variable start (default start of pull)
-- end 		collective variable end (default end of pull)
-- min		switches off energy minimisation
-- tpr		switches off production tpr production
-- tpronly 	only makes production tpr files (requires energy minimised files)
+- int     window interval (default 0.05 nm)
+- start   collective variable start (default start of pull)
+- end     collective variable end (default end of pull)
+- min   switches off energy minimisation
+- tpr   switches off production tpr production
+- tpronly   only makes production tpr files (requires energy minimised files)
 
 Using the following directory structure as a example:
 
@@ -84,7 +83,7 @@ Using the following directory structure as a example:
               - topol.top, index.ndx, production.mdp
     | --    PULL
               - pull_pullx.xvg, pull.tpr, pull.xtc
-              	
+                
 To setup PMF between 1 and 3 nm with a window spacing of 0.05 nm.
 
 the command line would look like:
@@ -128,15 +127,14 @@ Column 5 (F-S) is the final CV minus the selected CV
 
 Column 6 is the window number for each CV used in the script
 
+<pre>
     proposed       selected         final           S-P              F-S         window
       0.5           0.5             0.510           0.0             0.01            40
       0.575         0.575           0.573           0.0             -0.002          41
       0.65          0.65            0.662           0.0             0.012           42
       0.725         0.726           0.736           0.001           0.01            43
       0.8           0.799           0.806           -0.001          0.007           44
-
-
-\
+</pre>
 
                                         **WHAM ANALYSIS**
 
@@ -153,7 +151,7 @@ If you wish to concatonate the pullf files within the current working directory 
 
 Flags 
 
-- start 	window start number (int)
+- start   window start number (int)
 - end       window end number (int)
 - current   concatonate in working dir (optional)
 
@@ -197,10 +195,11 @@ For some reason gmx wham runs equally well on 1 core as it does on all the cores
 
 If you wish to run gmx wham outside the script add the following prefix to the gromacs command.
 
+<pre>
     "taskset --cpu-list 0" 
 
     e.g. taskset --cpu-list 0 gmx wham -if en.dat -it tpr.dat -bsres bsres -temp 310 -nBootstrap 200 -b 5000
-\
+</pre>
 
                                         **PLOTTING**
 
@@ -214,9 +213,9 @@ Histogram overlap
 Histograms
 
 Flags
--pmf  		name of your energy landscape.
--hist 		name of your histograms.
--cutoff 	overlap cutoff adjustment.
+-pmf      name of your energy landscape.
+-hist     name of your histograms.
+-cutoff   overlap cutoff adjustment.
 
 e.g. 
 
