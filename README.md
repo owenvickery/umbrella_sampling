@@ -208,14 +208,16 @@ Once you have your initial PMF, you need to run some basic quality control check
 Here the script will provide:
 
 Energy landscape and error (if calculated)
-Normalised histogram sum
-Histogram overlap
-Histograms
+
+- Normalised histogram sum
+- Histogram overlap
+- Histograms
 
 Flags
--pmf      name of your energy landscape.
--hist     name of your histograms.
--cutoff   overlap cutoff adjustment.
+
+- pmf      name of your energy landscape.
+- hist     name of your histograms.
+- cutoff   overlap cutoff adjustment.
 
 e.g. 
 
