@@ -232,7 +232,7 @@ The plot will be saved as 'energy\_landscape\_(time_stamp).png'.
 The minimum quality level of the landscape is denoted by the red line.
 
 - The normalised histogram sum has a cutoff of 20 %.
-- The Histgram overlap has a default cutoff of 3 (changed with flag -cutoff).
+- The histgram overlap has a default cutoff of 3 (changed with flag -cutoff).
 
 If you wish to check the convergence of the pmf with increasing simulation time.
 
@@ -248,7 +248,7 @@ e.g.
 
     python pmf.py -func plot -pmf bsres_5-10.xvg bsres_5-15.xvg bsres_5-20.xvg -hist histo.xvg
 
-In this case you be asked a additional question. 
+In this case you be asked an additional question. 
 
     what is the timestep? 5
 
@@ -259,7 +259,7 @@ This sets the x axis of the line graph showing the energy minima over time.
 
 Unless you have a simple system, you will get gaps between your umbrella windows.
 
-Therefore this script will fill in the gaps using the same criteria from the analysis plot.
+Therefore this script will fill in the gaps using the same criteria as the analysis plot.
 
 The normalised histogram sum has a cutoff of 20 %.
 The histgram overlap has a default cutoff of 3 (changed with flag -cutoff). 
@@ -272,6 +272,6 @@ e.g.
 
     python pmf.py -func fill -n BUILD/index.ndx -p BUILD/topol.top -mdp BUILD/production.mdp -s PULL/pull.tpr -f PULL/pull.xtc -pull PULL/pullx.xvg -start 1 -end 3 -int 0.05 -offset 40 -hist umbrella_sampling/analysis/histo.xvg
 
-Iterate over these steps until your have a coverged PMF.
+Iterate over these steps until you have a coverged PMF.
 
 Good luck    
