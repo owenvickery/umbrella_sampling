@@ -88,7 +88,8 @@ def backup():
         copyfile(args.n, location+'/setup_files_'+timestamp+'/index.ndx')
 
 ### runs gromacs commands
-def gromacs(cmd):
+def gromacs(gro):
+    cmd = gro[0]
     if args.v >= 1:
         print('\nrunning gromacs: \n '+cmd+'\n')
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -115,6 +116,10 @@ def gromacs(cmd):
         sys.exit('\n'+out)
     elif 'number of atoms in the topology (' in out:
         sys.exit('\n'+out+'\n\nIf it is only 2 atoms out check cysteine distances, and increase -cys cutoff')
+
+    if len(gro) == 3: 
+        gro[2].put(gro[1])
+        return gro[1]
 ### collects final CV position from grompp
 def final(cmd):
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -144,8 +149,14 @@ def setup():
     react_coord_final=equilibrate(args.offset, end)         ##  equilibrates umbrella windows 
     return react_coord_proposed, react_coord_init, react_coord_final        ##  returns CVs
 
+def report_complete(func, size, resid):
+        print('Running '+func+' on '+str(resid)+' frames: percentage complete: ',np.round((size/resid)*100,2),'%', end='\r')
+        time.sleep(0.1)
+
 def equilibrate(offset, offset_end):
     pool = mp.Pool(mp.cpu_count())
+    m = mp.Manager()
+    q = m.Queue()
     if not args.tpronly:
         if args.min:
             make_min()
@@ -154,22 +165,28 @@ def equilibrate(offset, offset_end):
                 try: 
                     os.makedirs(directories[2]+'/window_'+str(i))
                 except:
-                    print('minimise folder exists')
-            pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+
+                    pass
+            pool_process = pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/em_out-'+str(i)+
                                     ' -f '+location+'/em.mdp -p '+args.p+' -n '+args.n+' -maxwarn 2 -c '+
-                                    directories[1]+'/window_'+str(i)+'.pdb -o '+directories[2]+'/window_'+str(i)+'/window_'+str(i)) 
-                                    for i in range(offset+1, offset_end+1)]).get()         ## minimisation grompp parallised
-            pool.join
+                                    directories[1]+'/window_'+str(i)+'.pdb -o '+directories[2]+'/window_'+str(i)+'/window_'+str(i), i, q) 
+                                    for i in range(offset+1, offset_end+1)])         ## minimisation grompp parallised
+            while not pool_process.ready():
+                report_complete('GROMPP', q.qsize(), offset_end-offset)
+                print('                                                                       ', end='\r')
+                # print('GROMPP completed') 
+            pool.close
             cwd=os.getcwd()
             for i in range(offset+1, offset_end+1):             ##  changes to minimised directory and runs mdrun 
                 os.chdir(directories[2]+'/window_'+str(i))
-                gromacs(gmx+' mdrun -v -nt 10 -deffnm window_'+str(i))          
+                gromacs([gmx+' mdrun -v -nt 10 -deffnm window_'+str(i)])    
+                print('Running mdrun on '+str(offset+1)+'-'+str(offset_end+1)+' frames: percentage complete: ',np.round((i/(offset_end-offset))*100,2),'%', end='\r')      
                 os.chdir(cwd)
+            print('\n')
     if args.tpr:
         make_umbrella_windows(offset, offset_end)
 
     ### sorts out frame ordering
-    window=final('grep /umbrella_windows/windows/window_ '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | grep grompp | awk \'{print substr($0,length($0),1)} \'')
+    window = final('grep /umbrella_windows/windows/window_ '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | grep grompp | awk \'{print substr($0,length($0),1)} \'')
     CV = final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+location+'/setup_files_'+timestamp+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
     final_CV=np.stack((window, CV),axis=-1)
     final_CV=np.sort(final_CV, axis=0)
@@ -182,21 +199,27 @@ def make_umbrella_windows(offset, offset_end):
             os.makedirs(directories[3]+'/window_'+str(i))
         except:
             print('windows folder exists') 
-    pool = mp.Pool(mp.cpu_count())        
+    pool = mp.Pool(mp.cpu_count()) 
+    m = mp.Manager()
+    q = m.Queue()       
     if args.min:
-        pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+        pool_process = pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
         +' -maxwarn 2 -c '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -r '+directories[2]+'/window_'+str(i)+'/window_'+str(i)+'.gro -o '\
-        +directories[3]+'/window_'+str(i)+'/window_'+str(i)) for i in range(offset+1, offset_end+1)])           ## makes umbrella windows from minimised frames
-        pool.join
+        +directories[3]+'/window_'+str(i)+'/window_'+str(i), i, q) for i in range(offset+1, offset_end+1)])           ## makes umbrella windows from minimised frames
     else:   
-        pool.map(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+        pool_process = pool.map_async(gromacs, [(gmx+' grompp -po '+location+'/setup_files_'+timestamp+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
         +' -maxwarn 2 -c '+directories[1]+'/window_'+str(i)+'.pdb -r '+directories[1]+'/window_'+str(i)+'.pdb  -o '+directories[3]+'/window_'\
-        +str(i)+'/window_'+str(i)) for i in range(offset+1, offset_end+1)])                 ##  ## makes umbrella windows from non-minimised frames
-        pool.join
+        +str(i)+'/window_'+str(i), i, q) for i in range(offset+1, offset_end+1)])                 ##  ## makes umbrella windows from non-minimised frames
+    while not pool_process.ready():
+        report_complete('GROMPP', q.qsize(), offset_end-offset)
+        print('                                                                       ', end='\r')
+    pool.close()
 
 ### gets frames from pull 
 def get_conformation(start, end, offset, pull,react_coord_proposed, react_coord_init): 
     pool = mp.Pool(mp.cpu_count())
+    m = mp.Manager()
+    q = m.Queue()
     # print('\nsetting up umbrella window coordinates')
     frametime, distance, dist =[], [], []
     if start<=end:
@@ -211,9 +234,13 @@ def get_conformation(start, end, offset, pull,react_coord_proposed, react_coord_
                 frametime.append(pull[0][pull[1].index(min(pull[1], key=lambda x:abs(x-CV)))])
                 react_coord_proposed.append(np.around(CV, decimals=3))
     if not args.tpronly:   ### runs trjconv to get frames uses multiprocessing
-        pool.map(gromacs, [('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(ftime)+' -e '+str(ftime)+' -o umbrella_windows/frames/window_'\
-            +str(x+1+offset)+'.pdb') for x,ftime in enumerate(frametime)])
-        pool.join
+        pool_process = pool.map_async(gromacs, [('echo 0 | '+gmx+' trjconv -f '+args.f+' -s '+args.s+' -b '+str(ftime)+' -e '+str(ftime)+' -o umbrella_windows/frames/window_'\
+            +str(x+1+offset)+'.pdb', x, q) for x,ftime in enumerate(frametime)])
+        while not pool_process.ready():
+            report_complete('trjconv', q.qsize(), len(frametime))
+            print('                                                                       ', end='\r')
+            # print('trjconv completed')
+        pool.close()
     offsetnew=len(frametime)+offset
     return offsetnew, react_coord_proposed, react_coord_init
 
@@ -419,7 +446,7 @@ def results(miscs):
     for i in range(len(react_coord_proposed)):
         if args.tpr==True:
             try:
-                line='\n{0:^10}{1:^10}{2:^10}{3:^10}{4:^10}{5:^10}'.format(react_coord_proposed[i], react_coord_init[i], react_coord_final[i], 
+                line='{0:^10}{1:^10}{2:^10}{3:^10}{4:^10}{5:^10}'.format(react_coord_proposed[i], react_coord_init[i], react_coord_final[i], 
                             np.around(float(react_coord_init[i])-float(react_coord_proposed[i]), decimals=3), 
                             np.around(float(react_coord_final[i])-float(react_coord_init[i]), decimals=3 ), args.offset+1+i)
                 print(line)
@@ -476,7 +503,7 @@ def pull_concat(window):
 
 def run_wham():
     core = str(ask_integer('what core would you like to run this on 0-11: '))
-    gromacs('taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start))
+    gromacs(['taskset --cpu-list '+core+' gmx wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start)])
 
 start = time.time()
 
