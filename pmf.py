@@ -523,75 +523,78 @@ def run_wham():
     core = str(ask_integer('what core would you like to run this on 0-11: '))
     gromacs(['taskset --cpu-list '+core+' '+args.gmx+' wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start)])
 
-start = time.time()
 
-parser = argparse.ArgumentParser(description='Sets up and analyses PMF calculations', prog='pmf', epilog='Enjoy the program and best of luck!\n')
+if __name__ == '__main__':
 
-parser.add_argument('-mdp', help='umbrella mdp file',metavar='md.mdp', type=str)
-parser.add_argument('-func', help='what to do initial setup, plot, concat, wham or fill',metavar='[setup, plot, concat, wham, fill]',type=str, choices= ['setup', 'plot', 'concat','wham', 'fill'], required=True)
-parser.add_argument('-f', help='xtc file for setup (eg your pull xtc)',metavar='pull.xtc',type=str)
-parser.add_argument('-s', help='structure file for setup (use the pull.tpr)',metavar='pull.tpr',type=str)
-parser.add_argument('-n', help='index file for the system',metavar='index.ndx', type=str)
-parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
-parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
-parser.add_argument('-offset', help='window offset',metavar='5',type=int, default=0)
-parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
-parser.add_argument('-min', help='switch off minisation', action='store_false')
-parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float, default=0.05)
-parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
-parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
-parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
-parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
-parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
-parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
-parser.add_argument('-current', help='to concat in current directory', action='store_true')
-parser.add_argument('-cutoff', help='histogram overlap cutoff for filling and plotting', default=3, type=int)
-parser.add_argument('-v', action="count", default=0, help="increase output verbosity (eg -vv, 3 levels) (Optional)")
-parser.add_argument('-loc', help='output folder name, (default = umbrella_windows)',metavar='umbrella_windows',type=str, default='umbrella_windows')
-parser.add_argument('-gmx', help='gromacs executable name (Optional)',metavar='gmx_avx',type=str)
+    start = time.time()
 
-args = parser.parse_args()
-options = vars(args)
+    parser = argparse.ArgumentParser(description='Sets up and analyses PMF calculations', prog='pmf', epilog='Enjoy the program and best of luck!\n')
 
-start_dir        = os.getcwd()+'/'  ### initial working directory
-running_dir      = os.getcwd()+'/'+args.loc
-frames           = running_dir+'/frames/'   ### working directory 
-minimised_frames = running_dir+'/minimised/'  ### final directory for run files
-umbrella_windows = running_dir+'/windows/'  ### contains input run files
-analysis         = running_dir+'/analysis/'  ### contains run files
-setup_files      = running_dir+'/setup_files_'+timestamp
-find_gromacs()
-find_offset()
-folders()
+    parser.add_argument('-mdp', help='umbrella mdp file',metavar='md.mdp', type=str)
+    parser.add_argument('-func', help='what to do initial setup, plot, concat, wham or fill',metavar='[setup, plot, concat, wham, fill]',type=str, choices= ['setup', 'plot', 'concat','wham', 'fill'], required=True)
+    parser.add_argument('-f', help='xtc file for setup (eg your pull xtc)',metavar='pull.xtc',type=str)
+    parser.add_argument('-s', help='structure file for setup (use the pull.tpr)',metavar='pull.tpr',type=str)
+    parser.add_argument('-n', help='index file for the system',metavar='index.ndx', type=str)
+    parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
+    parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
+    parser.add_argument('-offset', help='window offset',metavar='5',type=int, default=0)
+    parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
+    parser.add_argument('-min', help='switch off minisation', action='store_false')
+    parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float, default=0.05)
+    parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
+    parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
+    parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
+    parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
+    parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
+    parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
+    parser.add_argument('-current', help='to concat in current directory', action='store_true')
+    parser.add_argument('-cutoff', help='histogram overlap cutoff for filling and plotting', default=3, type=int)
+    parser.add_argument('-v', action="count", default=0, help="increase output verbosity (eg -vv, 3 levels) (Optional)")
+    parser.add_argument('-loc', help='output folder name, (default = umbrella_windows)',metavar='umbrella_windows',type=str, default='umbrella_windows')
+    parser.add_argument('-gmx', help='gromacs executable name (Optional)',metavar='gmx_avx',type=str)
 
-if args.tpr:
-    check_arguments(['mdp', 'tpr','f', 'n', 'p', 's'])
+    args = parser.parse_args()
+    options = vars(args)
 
-if args.func == 'setup':
-    check_arguments(['pull', 'int'])
-    setup()
-elif args.func == 'fill':
-    check_arguments(['pull', 'int', 'offset'])
-    fill_gaps()
-elif args.func== 'plot':
-    check_arguments(['pmf', 'hist'])
-    plot_pmf()
-elif args.func== 'concat':
-    pool = mp.Pool(mp.cpu_count())
-    check_arguments(['start', 'end'])
-    concatonated = pool.map(pull_concat, [(window) for window in range(int(args.start), int(args.end)+1)])          ## makes umbrella windows from minimised frames
-    pool.join
-    np.array(concatonated).sort(axis=0)
-    print('\nwindow\ttotal part numbers')
-    for line in concatonated:
-        if line[1] != 0:
-            print(line[0], '\t', line[1])
-        else:
-            print(line[0], '\t', 'SKIPPED')
-elif args.func== 'wham':
-    check_arguments(['pmf', 'boot', 'start'])
-    run_wham()
+    start_dir        = os.getcwd()+'/'  ### initial working directory
+    running_dir      = os.getcwd()+'/'+args.loc
+    frames           = running_dir+'/frames/'   ### working directory 
+    minimised_frames = running_dir+'/minimised/'  ### final directory for run files
+    umbrella_windows = running_dir+'/windows/'  ### contains input run files
+    analysis         = running_dir+'/analysis/'  ### contains run files
+    setup_files      = running_dir+'/setup_files_'+timestamp
+    find_gromacs()
+    find_offset()
+    folders()
 
-end = time.time()
+    if args.tpr:
+        check_arguments(['mdp', 'tpr','f', 'n', 'p', 's'])
 
-print('\nThis script took: '+str(np.round(end-start,1))+'s to run')
+    if args.func == 'setup':
+        check_arguments(['pull', 'int'])
+        setup()
+    elif args.func == 'fill':
+        check_arguments(['pull', 'int', 'offset'])
+        fill_gaps()
+    elif args.func== 'plot':
+        check_arguments(['pmf', 'hist'])
+        plot_pmf()
+    elif args.func== 'concat':
+        pool = mp.Pool(mp.cpu_count())
+        check_arguments(['start', 'end'])
+        concatonated = pool.map(pull_concat, [(window) for window in range(int(args.start), int(args.end)+1)])          ## makes umbrella windows from minimised frames
+        pool.join
+        np.array(concatonated).sort(axis=0)
+        print('\nwindow\ttotal part numbers')
+        for line in concatonated:
+            if line[1] != 0:
+                print(line[0], '\t', line[1])
+            else:
+                print(line[0], '\t', 'SKIPPED')
+    elif args.func== 'wham':
+        check_arguments(['pmf', 'boot', 'start'])
+        run_wham()
+
+    end = time.time()
+
+    print('\nThis script took: '+str(np.round(end-start,1))+'s to run')
