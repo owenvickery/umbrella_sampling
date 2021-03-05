@@ -5,8 +5,7 @@ import numpy as np
 from pylab import *
 from matplotlib.font_manager import FontProperties
 import argparse
-from subprocess import Popen, PIPE
-import subprocess, shlex
+import subprocess
 from time import gmtime, strftime
 from shutil import copyfile
 import distutils.spawn
@@ -83,17 +82,18 @@ def find_offset():
 
 ### gets CV from pull file 
 def get_pull():
-    try:
-        file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13)
-    except:
-        print('Cannot find pull file or something is wrong with it')
-        print('removing final line to fix partial line write (hopefully)')
-        try:
-            file_out=np.genfromtxt(args.pull, autostrip=True, comments='@',skip_header=13, skip_footer=1)
-        except:
-            sys.exit("Cannot find pull file or something is wrong with it: "+args.pull)
-    return [list(file_out[:,0]),list(file_out[:,1])]
-
+    file_out = [[],[]]
+    if os.path.exists(args.pull):
+        with open(args.pull, 'r') as pull_input:
+            for line_nr, line in enumerate(pull_input.readlines()):
+                if len(line)>0:
+                    if line[0] not in ['@', '#']:
+                        if len(line.split())==2:
+                            file_out[0].append(float(line.split()[0]))
+                            file_out[1].append(float(line.split()[1]))
+        return file_out
+    else:
+        sys.exit("cannot find pull file")
 ### make minimise mdp file
 def make_min():
     if not os.path.exists(running_dir+'em.mdp'):
@@ -122,7 +122,6 @@ def gromacs(gro):
         print('\nrunning gromacs: \n '+cmd+'\n')
     output = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     err, out = output.communicate()
-    exitcode = output.returncode
     out=out.decode("utf-8")
     if args.func != 'wham':
         checks = open(setup_files+'/gromacs_outputs'+'_'+timestamp, 'a')
@@ -160,8 +159,8 @@ def final(cmd):
 def setup():
     print('\ninitialising setup')
     pull=get_pull()                     ##  gets CV coordinates
-    start_pull = min(pull[1]) if args.start == None else args.start              ##  selection of start point
-    end_pull = max(pull[1]) if args.end == None else args.end
+    start_pull = min(pull[1]) if args.start is None else args.start              ##  selection of start point
+    end_pull = max(pull[1]) if args.end is None else args.end
 
     print('\ncreating umbrella windows between\n')
     print('{0:^10}{1:^10}\n{2:^10}{3:^10}\n'.format('start', 'end', np.round(start_pull, 2), end_pull))   
@@ -300,9 +299,7 @@ def fill_gaps():
             offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull, react_coord_proposed, react_coord_init)
     if cv_start==False:
         offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull,react_coord_proposed, react_coord_init)
-    react_coord_final=equilibrate(offset)
     results([react_coord_proposed, react_coord_init,equilibrate(offset)])
-    # return react_coord_proposed, react_coord_init, react_coord_final
 
 def set_to_zero(energy):
     if energy[-1] < 0:
@@ -314,9 +311,6 @@ def set_to_zero(energy):
 def plot_pmf():
     print('\nplotting PMF data')
     # Fonts
-    alignment = {'horizontalalignment': 'center', 'verticalalignment': 'baseline'}
-    families = ['serif', 'sans-serif', 'cursive', 'fantasy', 'monospace']
-    styles = ['normal', 'italic', 'oblique']
     font = FontProperties()
 
     #  tick fonts

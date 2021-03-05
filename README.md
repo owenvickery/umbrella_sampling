@@ -1,3 +1,6 @@
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/owenvickery/umbrella_sampling.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/owenvickery/umbrella_sampling/alerts/)
+
+
                                 **UMBRELLA SAMPLING README**
 
 If you are using this script please acknowledge me (Dr Owen Vickery) and cite the following DOI.
