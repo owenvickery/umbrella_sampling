@@ -18,6 +18,7 @@ install:
   - pip install codecov
   - pip install scipy
   - pip install numpy
+  - pip install pylab
 
 # Run the unit test
 script:

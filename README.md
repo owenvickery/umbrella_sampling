@@ -1,4 +1,5 @@
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/owenvickery/umbrella_sampling.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/owenvickery/umbrella_sampling/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/owenvickery/umbrella_sampling.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/owenvickery/umbrella_sampling/context:python)
 
 
                                 **UMBRELLA SAMPLING README**
