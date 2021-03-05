@@ -5,7 +5,7 @@ package:
   version: {{ environ['VERSION'] }}
 
 source:
-  git_rev: "v1"
+  git_rev: "v1.0.1"
   git_url: https://github.com/owenvickery/umbrella_sampling
 
 requirements:
