@@ -13,6 +13,7 @@ requirements:
     - scipy
     - numpy
     - pathlib
+    - pylab
 
 build:
   number: {{ environ.get("GIT_DESCRIBE_NUMBER", 0) }} #{{ environ['GIT_DESCRIBE_HASH'] }} 
