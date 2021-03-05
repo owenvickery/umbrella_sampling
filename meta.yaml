@@ -1,0 +1,28 @@
+{% set name = "pmf" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ environ['VERSION'] }}
+
+source:
+  git_rev: "v1"
+  git_url: https://github.com/owenvickery/umbrella_sampling
+
+requirements:
+  run:
+    - scipy
+    - numpy
+    - pathlib
+
+build:
+  number: {{ environ.get("GIT_DESCRIBE_NUMBER", 0) }} #{{ environ['GIT_DESCRIBE_HASH'] }} 
+  script_env:
+    - VERSION
+    - CONDA_BLD_PATH
+    - package
+run:
+  - python
+
+extra:
+  maintainers:
+    - Owen Vickery

@@ -1,0 +1,1 @@
+ln -fs $CONDA_PREFIX/pkgs/$PKG_NAME-$PKG_VERSION-$PKG_BUILDNUM/info/recipe/pmf $CONDA_PREFIX/bin/pmf ||  echo "ln -fs $CONDA_PREFIX/pkgs/$PKG_NAME/info/recipe/pmf $CONDA_PREFIX/bin/pmf  wrong" > $PREFIX/.messages
