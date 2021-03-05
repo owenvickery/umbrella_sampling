@@ -1,4 +1,4 @@
-{% set name = "pmf" %}
+{% set name = "umbrella_sampling" %}
 
 package:
   name: {{ name|lower }}
