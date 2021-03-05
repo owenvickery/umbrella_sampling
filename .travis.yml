@@ -18,7 +18,7 @@ install:
   - pip install codecov
   - pip install scipy
   - pip install numpy
-  - conda install pylab
+  - pip install matplotlib
 
 # Run the unit test
 script:
