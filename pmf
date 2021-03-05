@@ -19,7 +19,7 @@ timestamp =  strftime("%Y-%m-%d_%H-%M-%S", gmtime())
 
 #flags to change if needed
 
-location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to change location to a absolute path
+#location=os.getcwd()+'/umbrella_windows'  #  use line below if you want to change location to a absolute path
 
 #location = 'xxx/xxx/xxx/xxx'
 
@@ -96,8 +96,8 @@ def get_pull():
 
 ### make minimise mdp file
 def make_min():
-    if not os.path.exists(location+'em.mdp'):
-        em = open(location+'/em.mdp','w')
+    if not os.path.exists(running_dir+'em.mdp'):
+        em = open(running_dir+'/em.mdp','w')
         em.write('integrator = steep\nnsteps     = 5000\nemtol      = 1000\nemstep     = 0.001')
 
 ### make file directories for umbrella sampling
@@ -111,9 +111,9 @@ def folders():
 ### copies input files to backup
 def backup():
     if args.tpr:
-        copyfile(args.p, location+'/setup_files_'+timestamp+'/topol.top')
-        copyfile(args.mdp, location+'/setup_files_'+timestamp+'/md.mdp')
-        copyfile(args.n, location+'/setup_files_'+timestamp+'/index.ndx')
+        copyfile(args.p, setup_files+'/topol.top')
+        copyfile(args.mdp, setup_files+'/md.mdp')
+        copyfile(args.n, setup_files+'/index.ndx')
 
 ### runs gromacs commands
 def gromacs(gro):
@@ -449,7 +449,7 @@ def plot_pmf():
 
 def results(miscs):
     react_coord_proposed, react_coord_init,react_coord_final=miscs
-    result_write = open(location+'/setup_files_'+timestamp+'/collective_variable_position'+'_'+timestamp, 'w')
+    result_write = open(setup_files+'/collective_variable_position'+'_'+timestamp, 'w')
     if args.tpr==True:
         if len(react_coord_final)==len(react_coord_proposed):
             line='\n{0:^10}{1:^10}{2:^10}{3:^10}{4:^10}{5:^10}'.format('proposed', 'selected', 'final', 'S-P', 'F-S', 'window') 
@@ -559,7 +559,7 @@ frames           = running_dir+'/frames/'   ### working directory
 minimised_frames = running_dir+'/minimised/'  ### final directory for run files
 umbrella_windows = running_dir+'/windows/'  ### contains input run files
 analysis         = running_dir+'/analysis/'  ### contains run files
-setup_files      = running_dir+'/setup_files_'+strftime("%Y-%m-%d_%H-%M-%S", gmtime())
+setup_files      = running_dir+'/setup_files_'+timestamp
 find_gromacs()
 find_offset()
 folders()
