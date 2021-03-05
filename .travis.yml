@@ -1,0 +1,29 @@
+# Set the build language to Python
+language: python
+
+# Set the python version to 3.7
+python: 3.7
+
+# Set the os type
+os: linux
+
+# Install the codecov pip dependency
+install:
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - pip install codecov
+  - pip install scipy
+  - pip install numpy
+
+# Run the unit test
+script:
+  - coverage run tests/test.py 
+
+# Push the results back to codecov and upload to conda
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+  - test $TRAVIS_BRANCH = "master" && conda install conda-build && conda install conda-verify && conda install anaconda-client && bash conda/conda_upload.sh
