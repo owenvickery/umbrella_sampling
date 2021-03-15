@@ -38,8 +38,9 @@ def ask_number(question):
 
 ### checks whether all arguements are present ###
 def check_arguments(arguments):
+
     for argue in arguments:
-        if not bool(options[argue]):
+        if argue not in options or options[argue] == None:
             print('\narguement: \''+argue+'\' is missing')
             failed = True
     if 'failed' in locals():
@@ -485,9 +486,10 @@ def pull_concat(window):
         
         for root, dirs, files in os.walk(xvg_loc):
             for filename in files:
-                if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
-                    if 'pullf' in filename:
-                        files_range.append(filename)
+                if filename.endswith('.xvg'):
+                    if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
+                        if 'pullf' in filename:
+                            files_range.append(filename)
             break
 
         if len(files_range) == 1:
@@ -511,11 +513,12 @@ def pull_concat(window):
                     em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
         else:
             xvgs=len(files_range)
+        os.system('cp '+xvg_loc+'window_'+str(window)+'.tpr window_'+str(window)+'.tpr')
         return [window, xvgs]
 
 def run_wham():
-    core = str(ask_integer('what core would you like to run this on 0-11: '))
-    gromacs(['taskset --cpu-list '+core+' '+args.gmx+' wham -if en.dat -it tpr.dat -bsres '+args.pmf+' -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.start)])
+    core = str(int(ask_number('what core would you like to run this on 0-11: ')))
+    gromacs(['taskset --cpu-list '+core+' '+args.gmx+' wham -if en.dat -it tpr.dat -temp 310 -nBootstrap '+str(args.boot)+' -b '+str(args.ts)])
 
 
 if __name__ == '__main__':
@@ -535,8 +538,11 @@ if __name__ == '__main__':
     parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
     parser.add_argument('-min', help='switch off minisation', action='store_false')
     parser.add_argument('-int', help='interval for umbrella windows (nm)',metavar='0.05', type=float, default=0.05)
-    parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float)
+    parser.add_argument('-start', help='where to start on reaction coordinate',metavar='0',type=float, default=0)
     parser.add_argument('-end', help='where to end on reaction coordinate',metavar='5', type=float)
+    parser.add_argument('-ws', help='windows start',metavar='1',type=int)
+    parser.add_argument('-we', help='windows end',metavar='5', type=int)
+    parser.add_argument('-ts', help='time start (equilibration)',metavar='5', type=float, default=0)
     parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=int)
     parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
     parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
@@ -559,24 +565,28 @@ if __name__ == '__main__':
     setup_files      = running_dir+'/setup_files_'+timestamp
     find_gromacs()
     find_offset()
-    folders()
+    
 
-    if args.tpr:
-        check_arguments(['mdp', 'tpr','f', 'n', 'p', 's'])
 
+    tpr_arg =[]
     if args.func == 'setup':
-        check_arguments(['pull', 'int'])
+        if args.tpr:
+            tpr_arg = ['mdp', 'tpr','f', 'n', 'p', 's']
+        check_arguments(['pull', 'int']+tpr_arg)
+        folders()
         setup()
     elif args.func == 'fill':
-        check_arguments(['pull', 'int', 'offset'])
+        if args.tpr:
+            tpr_arg = ['mdp', 'tpr','f', 'n', 'p', 's']
+        check_arguments(['pull', 'int', 'offset']+tpr_arg)
         fill_gaps()
     elif args.func== 'plot':
         check_arguments(['pmf', 'hist'])
         plot_pmf()
     elif args.func== 'concat':
         pool = mp.Pool(mp.cpu_count())
-        check_arguments(['start', 'end'])
-        concatonated = pool.map(pull_concat, [(window) for window in range(int(args.start), int(args.end)+1)])          ## makes umbrella windows from minimised frames
+        check_arguments(['ws', 'we'])
+        concatonated = pool.map(pull_concat, [(window) for window in range(args.ws, args.we+1)])          ## makes umbrella windows from minimised frames
         pool.join
         np.array(concatonated).sort(axis=0)
         print('\nwindow\ttotal part numbers')
@@ -585,6 +595,7 @@ if __name__ == '__main__':
                 print(line[0], '\t', line[1])
             else:
                 print(line[0], '\t', 'SKIPPED')
+
     elif args.func== 'wham':
         check_arguments(['pmf', 'boot', 'start'])
         run_wham()
