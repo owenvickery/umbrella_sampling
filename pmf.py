@@ -2,16 +2,18 @@
 
 import os, sys 
 import numpy as np
-from pylab import *
+import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import argparse
 import subprocess
 from time import gmtime, strftime
+import time
 from shutil import copyfile
 import distutils.spawn
 import multiprocessing as mp
-from scipy.stats import shapiro, normaltest
 import scipy.signal as signal
+from shutil import copyfile
+
 
 ###############################
 os.environ['GMX_SUPPRESS_DUMP'] = '1'
@@ -70,6 +72,10 @@ def find_gromacs():
                 break
         if args.gmx is None:
             sys.exit('Cannot find gromacs installation')
+
+def file_copy_and_check(file_in,file_out):
+    if not os.path.exists(file_out) and os.path.exists(file_in):
+        copyfile(file_in, file_out)
 
 ## gets window offset
 def find_offset():
@@ -296,6 +302,19 @@ def check_histogram_normality(data):
     print()
     return np.array(skewed_data)
 
+def preprocess_arrays(pull, coord, overlap, histogram_sum):
+    available_coord = np.where(np.logical_and(coord>np.min(pull[1]),coord<np.max(pull[1])))
+    coord_cut = coord[available_coord]
+    overlap_cut = overlap[available_coord]
+    histogram_sum_cut = histogram_sum[available_coord]
+
+    coord_fill = coord_cut[np.where(np.logical_or(overlap_cut < args.cutoff, histogram_sum_cut <= np.mean(histogram_sum)*0.25))]
+    if args.start != 0:
+        coord_fill = coord_fill[np.where(coord_fill > args.start)]
+    if args.end != None:
+        coord_fill = coord_fill[np.where(coord_fill < args.end)]
+    return coord_fill
+
 ### fills in gaps from the histograms
 def fill_gaps():
     print('\nfilling in gaps in PMF')
@@ -303,11 +322,9 @@ def fill_gaps():
     pull=get_pull()                                                                                 ##  gets pull information
     react_coord_proposed, react_coord_init=[],[]
     initial_offset, offset=args.offset, args.offset
-    coord_cut = coord[np.where(np.logical_and(coord>np.min(pull[1]),coord<np.max(pull[1])))]
-    coord_fill = np.where(np.logical_or(overlap < args.cutoff, histogram_sum <= np.mean(histogram_sum)*0.25))
-
+    coord_cut = preprocess_arrays(pull, coord, overlap, histogram_sum)
     cv_start=True
-    for i, cv in enumerate(coord_cut[coord_fill]):
+    for i, cv in enumerate(coord_cut):
         if cv_start==True:
             cv_initial=cv 
             cv_end=cv
@@ -318,7 +335,7 @@ def fill_gaps():
             cv_start=True
             offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull, react_coord_proposed, react_coord_init)
     if cv_start==False:
-        offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull,react_coord_proposed, react_coord_init)
+        offset, react_coord_proposed, react_coord_init = get_conformation(cv_initial, cv_end, offset, pull, react_coord_proposed, react_coord_init)
     results([react_coord_proposed, react_coord_init,equilibrate(offset)])
 
 def set_to_zero(energy):
@@ -343,7 +360,7 @@ def plot_pmf():
     font2.set_family('sans-serif')
     font2.set_style('normal')
     font2.set_weight('normal')
-    rcParams['mathtext.default'] = 'regular'
+    plt.rcParams['mathtext.default'] = 'regular'
 
     ### histogram start###
     histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel, skewed_data=get_histograms()
@@ -353,16 +370,16 @@ def plot_pmf():
 
     energy_time=[]              ## collects energy minima for timecourse
 ### plotting header
-    rcParams['axes.linewidth']=3
+    plt.rcParams['axes.linewidth']=3
     if len(skewed_data) > 0:
-        figure(1, figsize=(15,25))
+        plt.figure(1, figsize=(15,25))
         add_to_plot = 1
     else:
-        figure(1, figsize=(15,20))
+        plt.figure(1, figsize=(15,20))
         add_to_plot = 0
     # #energy landscape
-    subplot(4+add_to_plot,1,1)
-    title('PMF',  fontproperties=font1, fontsize=25,y=1.18)
+    plt.subplot(4+add_to_plot,1,1)
+    plt.title('PMF',  fontproperties=font1, fontsize=25,y=1.18)
 
     for pmf_number, pmf in enumerate(args.pmf):
         ### pmf plot start ###
@@ -391,98 +408,95 @@ def plot_pmf():
             energy_minima_error=0
 
             print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
-            plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')    
+            plt.plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')    
             if len(pmf_current[0]) == 3:
-                fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
+                plt.fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
                 energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
             energy_time.append([energy_minima, energy_minima_error])
         else:
             energy_minima=np.round(min(pmf_current[:,1]), 0)
             energy_minima_error=0
             print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
-            plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
+            plt.plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
             if len(pmf_current[0]) == 3:
-                fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')  
+                plt.fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')  
                 energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
             energy_time.append([energy_minima, energy_minima_error])
-    xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25)
+    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25)
     if args.ytick != None:
-        yticks(np.arange(-500,500,args.ytick), fontproperties=font1, fontsize=25)
+        plt.yticks(np.arange(-500,500,args.ytick), fontproperties=font1, fontsize=25)
     else:
-        yticks(fontproperties=font1, fontsize=25)
-    ylim(min_y, max_y);xlim(min_x,max_x)
-    tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-    xlabel('Distance (nm)', fontproperties=font2,fontsize=25);ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
-    legend(prop={'size': 25}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=len(args.pmf), mode="expand", borderaxespad=0.)
+        plt.yticks(fontproperties=font1, fontsize=25)
+    plt.ylim(min_y, max_y);plt.xlim(min_x,max_x)
+    plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
+    plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
+    plt.legend(prop={'size': 25}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=len(args.pmf), mode="expand", borderaxespad=0.)
     # Sum of histograms
-    subplot(4+add_to_plot,1,2)
-    title('Normalised histogram sum',  fontproperties=font1, fontsize=25,y=1)
-    plot(histt,hist_sum, linewidth=3, color='black')
-    plot([-100,100],[arb_cutoff,arb_cutoff], linewidth=3, color='red')
-    xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);xlim(min_x,max_x)
-    yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)#np.arange(0,np.max(hist_sum), 1000000), 
-    tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-    xlabel('Distance (nm)', fontproperties=font2,fontsize=25);ylabel('Sum of counts', fontproperties=font2,fontsize=25) 
+    plt.subplot(4+add_to_plot,1,2)
+    plt.title('Normalised histogram sum',  fontproperties=font1, fontsize=25,y=1)
+    plt.plot(histt,hist_sum, linewidth=3, color='black')
+    plt.plot([-100,100],[arb_cutoff,arb_cutoff], linewidth=3, color='red')
+    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)#np.arange(0,np.max(hist_sum), 1000000), 
+    plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
+    plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Sum of counts', fontproperties=font2,fontsize=25) 
 
     # Histogram overlap
-    subplot(4+add_to_plot,1,3)
-    title('Histogram overlap',  fontproperties=font1, fontsize=25,y=1)
-    plot(histt,overlap, linewidth=3, color='black')
-    plot([-100,100],[args.cutoff,args.cutoff], linewidth=3, color='red')
-    xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);xlim(min_x,max_x)
-    yticks(np.arange(0,np.max(overlap)+2, 2), fontproperties=font1, fontsize=25)
-    tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-    xlabel('Distance (nm)', fontproperties=font2,fontsize=25);ylabel('Overlap', fontproperties=font2,fontsize=25) 
+    plt.subplot(4+add_to_plot,1,3)
+    plt.title('Histogram overlap',  fontproperties=font1, fontsize=25,y=1)
+    plt.plot(histt,overlap, linewidth=3, color='black')
+    plt.plot([-100,100],[args.cutoff,args.cutoff], linewidth=3, color='red')
+    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.yticks(np.arange(0,np.max(overlap)+2, 2), fontproperties=font1, fontsize=25)
+    plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
+    plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Overlap', fontproperties=font2,fontsize=25) 
 
     # Histograms
-    subplot(4+add_to_plot,1,4)
-    title('Histogram windows',  fontproperties=font1, fontsize=25,y=1)
-    plot(histt,hist_rel)
-    xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);xlim(min_x,max_x)
-    yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
-    tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-    xlabel('Distance (nm)', fontproperties=font2,fontsize=25);ylabel('Counts', fontproperties=font2,fontsize=25) 
+    plt.subplot(4+add_to_plot,1,4)
+    plt.title('Histogram windows',  fontproperties=font1, fontsize=25,y=1)
+    plt.plot(histt,hist_rel)
+    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
+    plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
+    plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Counts', fontproperties=font2,fontsize=25) 
 
     if len(skewed_data) > 0:
-        subplot(4+add_to_plot,1,5)
-        title('Skewed Histogram windows',  fontproperties=font1, fontsize=25,y=1)
-        plot(histt,hist_rel, alpha=0.3, linewidth=2)
-        plot(histt,hist_rel[:,skewed_data-1], linewidth=3)
-        xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);xlim(min_x,max_x)
-        yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
-        tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-        xlabel('Distance (nm)', fontproperties=font2,fontsize=25);ylabel('Counts', fontproperties=font2,fontsize=25)         
-        subplots_adjust(left=0.15, wspace=0.4, hspace=0.4, top=0.95, bottom=0.1)
+        plt.subplot(4+add_to_plot,1,5)
+        plt.title('Skewed Histogram windows',  fontproperties=font1, fontsize=25,y=1)
+        plt.plot(histt,hist_rel, alpha=0.15, linewidth=2)
+        plt.plot(histt,hist_rel[:,skewed_data-1], linewidth=3)
+        plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+        plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
+        plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
+        plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Counts', fontproperties=font2,fontsize=25)         
+        plt.subplots_adjust(left=0.15, wspace=0.4, hspace=0.4, top=0.95, bottom=0.1)
     else:
-        subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
+        plt.subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
     if args.save_plot == None:
-        savefig('energy_landscape_'+timestamp+'.png', dpi=500)
+        plt.savefig('energy_landscape_'+timestamp+'.png', dpi=500)
     else:
-        savefig(args.save_plot+'.png', dpi=500)
+        plt.savefig(args.save_plot+'.png', dpi=500)
+
+
     if len(energy_time)>1:
-        figure(2, figsize=(10,10))
+        plt.figure(2, figsize=(10,10))
         energy_time=np.array(energy_time)
-        timestep=1
-        if len(energy_time) > 1:
-            timestep=ask_number('what is the timestep? ')
+        if len(energy_time) > 1 and args.timestep != 1:
+            args.timestep=ask_number('what is the timestep? ')
         # #energy landscape
-        title('PMF timecourse',  fontproperties=font1, fontsize=25,y=1.18)
-        # plot(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0], linewidth=3, color='blue', zorder=1)
-        errorbar(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0], yerr=energy_time[:,1], color='red', zorder=1)
-        plot(np.arange(0+timestep,len(energy_time[:,0])*timestep+timestep,timestep),energy_time[:,0],'o',color='k') 
+        plt.title('PMF timecourse',  fontproperties=font1, fontsize=25,y=1.18)
+        plt.errorbar(np.arange(0+args.timestep,len(energy_time[:,0])*args.timestep+args.timestep,args.timestep),energy_time[:,0], yerr=energy_time[:,1], color='red', zorder=1)
+        plt.plot(np.arange(0+args.timestep,len(energy_time[:,0])*args.timestep+args.timestep,args.timestep),energy_time[:,0],'o',color='k') 
+        plt.ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5);plt.xlim(0,len(energy_time[:,0])*args.timestep+(2*args.timestep))
+        plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
 
-        ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5);xlim(0,len(energy_time[:,0])*timestep+(2*timestep))
-        # ylim(np.min(energy_time[:,0])-5,0);xlim(0,len(energy_time[:,0])*timestep+(2*timestep))
-
-        tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
-
-        xlabel('time (ns)', fontproperties=font2,fontsize=25);ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
+        plt.xlabel('time (ns)', fontproperties=font2,fontsize=25);plt.ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
         if args.save_conv == None:
-            savefig('energy_landscape_convergence_'+timestamp+'.png', dpi=500)
+            plt.savefig('energy_landscape_convergence_'+timestamp+'.png', dpi=500)
         else:
-            savefig(args.save_conv+'.png', dpi=500)
+            plt.savefig(args.save_conv+'.png', dpi=500)
     if args.show:
-        show()
+        plt.show()
 
 def results(miscs):
     react_coord_proposed, react_coord_init,react_coord_final=miscs
@@ -524,39 +538,40 @@ def pull_concat(window):
         if args.current:
             xvg_loc = './'
         else:
-            xvg_loc = '../windows/window_'+str(window)+'/'
-        
-        for root, dirs, files in os.walk(xvg_loc):
-            for filename in files:
-                if filename.endswith('.xvg'):
-                    if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
-                        if 'pullf' in filename:
-                            files_range.append(filename)
-            break
+            xvg_loc = args.win_dir+'/window_'+str(window)+'/'
 
-        if len(files_range) == 1:
-            xvgs=len(files_range)
-            os.system('cp '+xvg_loc+files_range[0]+' window_'+str(window)+'_pullf_com.xvg')     
-        elif len(files_range) >= 2: 
-            xvgs=len(files_range)
-            for x in range(len(files_range)):
-                for line in open(xvg_loc+files_range[x], 'r').readlines():
-                    if not line[0] in ['#', '@']:
-                        if len(line) > 0 and len(line.split()) ==2:
-                            try:
-                                time.append(float(line.split()[0]))
-                                pull.append(float(line.split()[1]))
-                            except:
-                                break
-            if len(time) > 0:
-                time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
-                em = open('window_'+str(window)+'_pullf_com.xvg','w')
-                for j in range(len(time_ord)):
-                    em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+        if os.path.exists(xvg_loc):
+            for filename in os.listdir(xvg_loc):
+                if filename.endswith('.xvg') and 'pullf' in filename:
+                    if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
+                        files_range.append(filename)
+
+
+            if len(files_range) == 1:
+                xvgs=len(files_range)
+                file_copy_and_check('cp '+xvg_loc+files_range[0], 'window_'+str(window)+'_pullf_com.xvg')     
+            elif len(files_range) >= 2: 
+                xvgs=len(files_range)
+                for x in range(len(files_range)):
+                    for line in open(xvg_loc+files_range[x], 'r').readlines():
+                        if not line[0] in ['#', '@']:
+                            if len(line) > 0 and len(line.split()) ==2:
+                                try:
+                                    time.append(float(line.split()[0]))
+                                    pull.append(float(line.split()[1]))
+                                except:
+                                    break
+                if len(time) > 0:
+                    time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
+                    em = open('window_'+str(window)+'_pullf_com.xvg','w')
+                    for j in range(len(time_ord)):
+                        em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+            else:
+                xvgs=len(files_range)
+            file_copy_and_check('cp '+xvg_loc+'window_'+str(window)+'.tpr', 'window_'+str(window)+'.tpr')
+            return [window, xvgs]
         else:
-            xvgs=len(files_range)
-        os.system('cp '+xvg_loc+'window_'+str(window)+'.tpr window_'+str(window)+'.tpr')
-        return [window, xvgs]
+            return [window, 'MISSING']
 
 def run_wham():
     print('Now running wham\n')
@@ -613,6 +628,9 @@ if __name__ == '__main__':
     parser.add_argument('-ytick', help='pmf Y-axis tick interval', type=int)
     parser.add_argument('-y_range', help='range of Y-axis ',type=float, nargs=2)
     parser.add_argument('-show', help='show interactive plots', action='store_true')
+    parser.add_argument('-timestep', help='Convergence timestep', type=int, default=1 )
+    parser.add_argument('-win_dir', help='Window directory',metavar='../windows/', type=str, default='../windows/')
+
 
     args = parser.parse_args()
     options = vars(args)
@@ -623,7 +641,12 @@ if __name__ == '__main__':
     umbrella_windows = running_dir+'/windows/'  ### contains input run files
     analysis         = running_dir+'/analysis/'  ### contains run files
     setup_files      = running_dir+'/setup_files_'+timestamp
-    find_gromacs()
+
+
+
+
+    if args.func != 'plot':
+        find_gromacs()
     find_offset()
     
 
@@ -639,18 +662,19 @@ if __name__ == '__main__':
         if args.tpr:
             tpr_arg = ['mdp', 'tpr','f', 'n', 'p', 's']
         check_arguments(['pull', 'int', 'offset']+tpr_arg)
+        folders()
         fill_gaps()
     elif args.func== 'plot':
         check_arguments(['pmf', 'hist'])
         plot_pmf()
     elif args.func== 'concat':
+        print('Concatonating files in the range of: ', args.ws,'-', args.we)
+        print('Within the location: ', args.win_dir)
         pool = mp.Pool(mp.cpu_count())
         check_arguments(['ws', 'we'])
         concatonated = pool.map(pull_concat, [(window) for window in range(args.ws, args.we+1)])          ## makes umbrella windows from minimised frames
-        pool.join
-        np.array(concatonated).sort(axis=0)
         print('\nwindow\ttotal part numbers')
-        for line in concatonated:
+        for line in np.array(concatonated).sort(axis=0):
             if line[1] != 0:
                 print(line[0], '\t', line[1])
             else:
