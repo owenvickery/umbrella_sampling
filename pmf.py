@@ -77,6 +77,7 @@ def file_copy_and_check(file_in,file_out):
     if not os.path.exists(file_out) and os.path.exists(file_in):
         copyfile(file_in, file_out)
 
+
 ## gets window offset
 def find_offset():
     if os.path.exists(frames) and args.offset == 0:
@@ -172,7 +173,7 @@ def setup():
     end_pull = max(pull[1]) if args.end is None else args.end
 
     print('\ncreating umbrella windows between\n')
-    print('{0:^10}{1:^10}\n{2:^10}{3:^10}\n'.format('start', 'end', np.round(start_pull, 2), end_pull))   
+    print('{0:^10}{1:^10}{2:^10}\n{3:^10}{4:^10}{5:^10}\n'.format('start', 'end','interval', np.round(start_pull, 2), end_pull, args.int))   
     end, react_coord_proposed, react_coord_init = get_conformation(start_pull, end_pull, args.offset, pull,[], []) ## gets conformations from pull trajectory
     react_coord_final=equilibrate(end)         ##  equilibrates umbrella windows 
     results([react_coord_proposed, react_coord_init, react_coord_final])        ##  returns CVs
@@ -215,7 +216,7 @@ def equilibrate(offset_end):
         make_umbrella_windows(offset_end)
 
     ### sorts out frame ordering
-    window = final('grep /umbrella_windows/windows/window_ '+setup_files+'/gromacs_outputs_'+timestamp+' | grep grompp | awk \'{print substr($0,length($0),1)} \'')
+    window = final('grep windows/window_ '+setup_files+'/gromacs_outputs_'+timestamp+' | grep grompp | awk \'{print substr($0,length($0),1)} \'')
     CV = final('awk \'/Pull group  natoms  pbc atom/{nr[NR+2]}; NR in nr\' '+setup_files+'/gromacs_outputs_'+timestamp+' | awk \'{print $4}\'')
     final_CV=np.stack((window, CV),axis=-1)
     final_CV=np.sort(final_CV, axis=0)
@@ -280,7 +281,7 @@ def get_histograms():
     hist_sum=(histograms[:,1:].sum(axis=1))/np.max(histograms[:,1:].sum(axis=1))        ##  gives the sum of histograms relative to max sum
     hist_rel=histograms[:,1:]/np.max(histograms[:,1:])         
     ##  makes histograms relative to maximum
-    overlap_cutoff=np.mean(np.max(hist_rel[:,1:], axis=0))*0.1                                        ##  10% of total hisgram height discarded
+    overlap_cutoff=np.mean(np.max(hist_rel[:,1:], axis=0))*0.05
     overlap=[]
     for i in range(len(histograms[0:,1:])):  
         overlap.append(np.count_nonzero(hist_rel[i] > overlap_cutoff))  ##  provides overlap count if there is a overlap above cutoff
@@ -345,6 +346,21 @@ def set_to_zero(energy):
         energy = energy-energy[-1]  
     return energy
 
+def get_min_max(pmf_current, min_x=0, max_x=0, min_y=0, max_y=0):
+    if min_x > np.round(min(pmf_current[:,0]), 2)-0.25 or min_x ==0:
+        min_x = np.round(min(pmf_current[:,0]), 2)-0.25
+    if max_x < np.round(max(pmf_current[:,0]), 2)+0.25 or max_x ==0:
+        max_x = np.round(max(pmf_current[:,0]), 2)+0.25
+
+    if args.y_range != None:
+        min_y, max_y = args.y_range[0], args.y_range[1]
+    else:
+        if min_y > np.round(min(pmf_current[:,1]), 2)-10 or min_y ==0:
+            min_y = np.round(min(pmf_current[:,1]), 2)-10
+        if max_y < np.round(max(pmf_current[:,1]), 2)+10 or max_y ==0:
+            max_y = np.round(max(pmf_current[:,1]), 2)+10
+    return min_x, max_x, min_y, max_y
+
 def plot_pmf():
     print('\nplotting PMF data')
     # Fonts
@@ -364,7 +380,6 @@ def plot_pmf():
 
     ### histogram start###
     histt, histograms,hist_sum, overlap_cutoff, overlap, hist_rel, skewed_data=get_histograms()
-    arb_cutoff=np.mean(hist_sum)*0.25
     ### histogram end###
 
 
@@ -395,48 +410,45 @@ def plot_pmf():
     ### pmf plot end ###
         ### min max start ###
         if pmf_number == 0:
-            
-            min_x, max_x, step_x=np.round(min(pmf_current[:,0]), 2)-0.25, np.round(max(pmf_current[:,0]), 2)+0.25, 1
-            if args.y_range != None:
-                min_y, max_y = args.y_range[0], args.y_range[1]
-            else:
-                print("\ndefault values used")
-                min_y, max_y= np.round(min(pmf_current[:,1]), 2)-10, np.round(max(pmf_current[:,1]), 2)+10
-                print(min_y, max_y)
-        ### min max end ###
-            energy_minima=np.round(min(pmf_current[:,1]), 0)
-            energy_minima_error=0
+            min_x, max_x, min_y, max_y = get_min_max(pmf_current)
 
-            print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+        ### min max end ###
+            energy_minima=np.round(min(pmf_current[:,1]), 2)
+            energy_minima_error=0
+            print('pmf '+str(pmf_number+1)+': energy minima = '+str(energy_minima)+' +/- '+ 
+                  str(np.round( np.mean(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
             plt.plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, color='red', label='PMF 1')    
             if len(pmf_current[0]) == 3:
                 plt.fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')
-                energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
+                energy_minima_error=np.round( np.mean(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
             energy_time.append([energy_minima, energy_minima_error])
         else:
-            energy_minima=np.round(min(pmf_current[:,1]), 0)
+            min_x, max_x, min_y, max_y = get_min_max(pmf_current, min_x, max_x, min_y, max_y)
+            energy_minima=np.round(min(pmf_current[:,1]), 2)
             energy_minima_error=0
-            print('pmf '+str(pmf_number+1)+': energy minima = '+str(np.round(min(pmf_current[:,1]), 2))+' +/- '+ str(np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
+            print('pmf '+str(pmf_number+1)+': energy minima = '+str(energy_minima)+' +/- '+ 
+                  str(np.round( np.mean(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)))
             plt.plot(pmf_current[:,0],pmf_current[:,1], linewidth=3, label='PMF '+str(pmf_number+1))#, color='blue')
             if len(pmf_current[0]) == 3:
                 plt.fill_between(pmf_current[:,0], pmf_current[:,1]-pmf_current[:,2], pmf_current[:,1]+pmf_current[:,2], alpha=0.3, facecolor='black')  
-                energy_minima_error=np.round( float(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
+                energy_minima_error=np.round( np.mean(pmf_current[:,2][np.where(pmf_current[:,1] == min(pmf_current[:,1]))]), 2)
             energy_time.append([energy_minima, energy_minima_error])
-    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25)
+    plt.xticks(np.arange(-500,500,args.xtick), fontproperties=font1, fontsize=25)
     if args.ytick != None:
         plt.yticks(np.arange(-500,500,args.ytick), fontproperties=font1, fontsize=25)
     else:
         plt.yticks(fontproperties=font1, fontsize=25)
+
     plt.ylim(min_y, max_y);plt.xlim(min_x,max_x)
     plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
     plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
-    plt.legend(prop={'size': 25}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=len(args.pmf), mode="expand", borderaxespad=0.)
+    plt.legend(prop={'size': 25}, bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=5, mode="expand", borderaxespad=0.)#len(args.pmf)
     # Sum of histograms
     plt.subplot(4+add_to_plot,1,2)
     plt.title('Normalised histogram sum',  fontproperties=font1, fontsize=25,y=1)
     plt.plot(histt,hist_sum, linewidth=3, color='black')
-    plt.plot([-100,100],[arb_cutoff,arb_cutoff], linewidth=3, color='red')
-    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.plot([-100,100],[0.25, 0.25], linewidth=3, color='red')
+    plt.xticks(np.arange(-500,500,args.xtick), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
     plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)#np.arange(0,np.max(hist_sum), 1000000), 
     plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
     plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Sum of counts', fontproperties=font2,fontsize=25) 
@@ -446,32 +458,38 @@ def plot_pmf():
     plt.title('Histogram overlap',  fontproperties=font1, fontsize=25,y=1)
     plt.plot(histt,overlap, linewidth=3, color='black')
     plt.plot([-100,100],[args.cutoff,args.cutoff], linewidth=3, color='red')
-    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.xticks(np.arange(-500,500,args.xtick), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
     plt.yticks(np.arange(0,np.max(overlap)+2, 2), fontproperties=font1, fontsize=25)
     plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
     plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Overlap', fontproperties=font2,fontsize=25) 
 
     # Histograms
+    plt.gca().set_prop_cycle(None)
     plt.subplot(4+add_to_plot,1,4)
+    plt.gca().set_prop_cycle(None)
     plt.title('Histogram windows',  fontproperties=font1, fontsize=25,y=1)
     plt.plot(histt,hist_rel)
-    plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+    plt.plot([-100,100],[overlap_cutoff, overlap_cutoff], linewidth=3, color='red')
+
+    plt.xticks(np.arange(-500,500,args.xtick), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
     plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
     plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
     plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Counts', fontproperties=font2,fontsize=25) 
 
     if len(skewed_data) > 0:
+        plt.gca().set_prop_cycle(None)
         plt.subplot(4+add_to_plot,1,5)
+        
         plt.title('Skewed Histogram windows',  fontproperties=font1, fontsize=25,y=1)
         plt.plot(histt,hist_rel, alpha=0.15, linewidth=2)
         plt.plot(histt,hist_rel[:,skewed_data-1], linewidth=3)
-        plt.xticks(np.arange(-500,500,step_x), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
+        plt.xticks(np.arange(-500,500,args.xtick), fontproperties=font1, fontsize=25);plt.xlim(min_x,max_x)
         plt.yticks(np.arange(0,1.01,0.25),fontproperties=font1, fontsize=25)
         plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
         plt.xlabel('Distance (nm)', fontproperties=font2,fontsize=25);plt.ylabel('Counts', fontproperties=font2,fontsize=25)         
         plt.subplots_adjust(left=0.15, wspace=0.4, hspace=0.4, top=0.95, bottom=0.1)
     else:
-        plt.subplots_adjust(left=0.15, wspace=0.4, hspace=0.8, top=0.95, bottom=0.1)
+        plt.subplots_adjust(left=0.15, wspace=0.4, hspace=0.4, top=0.95, bottom=0.1)
     if args.save_plot == None:
         plt.savefig('energy_landscape_'+timestamp+'.png', dpi=500)
     else:
@@ -481,16 +499,18 @@ def plot_pmf():
     if len(energy_time)>1:
         plt.figure(2, figsize=(10,10))
         energy_time=np.array(energy_time)
-        if len(energy_time) > 1 and args.timestep != 1:
-            args.timestep=ask_number('what is the timestep? ')
+        # if len(energy_time) > 1 and args.timestep != 1:
+        #     args.timestep=ask_number('what is the timestep? ')
         # #energy landscape
-        plt.title('PMF timecourse',  fontproperties=font1, fontsize=25,y=1.18)
+        plt.title('PMF timecourse',  fontproperties=font1, fontsize=25,y=1.1)
         plt.errorbar(np.arange(0+args.timestep,len(energy_time[:,0])*args.timestep+args.timestep,args.timestep),energy_time[:,0], yerr=energy_time[:,1], color='red', zorder=1)
         plt.plot(np.arange(0+args.timestep,len(energy_time[:,0])*args.timestep+args.timestep,args.timestep),energy_time[:,0],'o',color='k') 
         plt.ylim(np.min(energy_time[:,0])-5, np.max(energy_time[:,0])+5);plt.xlim(0,len(energy_time[:,0])*args.timestep+(2*args.timestep))
         plt.tick_params(axis='both', which='major', width=3, length=5, labelsize=25, direction='in', pad=10, right=False, top=False)
 
         plt.xlabel('time (ns)', fontproperties=font2,fontsize=25);plt.ylabel('Energy (kJ mol$^{-1}$)', fontproperties=font2,fontsize=25) 
+        plt.subplots_adjust(left=0.18, right=0.98, wspace=0.4, hspace=0.4, top=0.8, bottom=0.1)
+
         if args.save_conv == None:
             plt.savefig('energy_landscape_convergence_'+timestamp+'.png', dpi=500)
         else:
@@ -501,19 +521,19 @@ def plot_pmf():
 def results(miscs):
     react_coord_proposed, react_coord_init,react_coord_final=miscs
     result_write = open(setup_files+'/collective_variable_position'+'_'+timestamp, 'w')
-    if args.tpr==True:
+    if args.tpr:
         if len(react_coord_final)==len(react_coord_proposed):
             line='\n{0:^10}{1:^10}{2:^10}{3:^10}{4:^10}{5:^10}'.format('proposed', 'selected', 'final', 'S-P', 'F-S', 'window') 
             print(line)
             result_write.write(line+'\n')
         else:
             sys.exit('mismatch between tpr output and expected output, check gromacs_outputs')
-    elif args.tpr==False:
+    else:
         line='{0:^10}{1:^10}{2:^10}{3:^10}'.format('proposed','selected','S-P','window')   
         print(line)
         result_write.write(line+'\n')
     for i in range(len(react_coord_proposed)):
-        if args.tpr==True:
+        if args.tpr:
             try:
                 line='{0:^10}{1:^10}{2:^10}{3:^10}{4:^10}{5:^10}'.format(react_coord_proposed[i], react_coord_init[i], react_coord_final[i], 
                             np.around(float(react_coord_init[i])-float(react_coord_proposed[i]), decimals=3), 
@@ -522,7 +542,7 @@ def results(miscs):
             except ValueError:
                 line=str(args.offset+1+i)+'   error in final grompp most likely'
             result_write.write(line+'\n')
-        elif args.tpr==False:
+        else:
             try:
                 line='{0:^10}{1:^10}{2:^10}{3:^10}'.format(react_coord_proposed[i],react_coord_init[i], 
                             np.around(float(react_coord_init[i])-float(react_coord_proposed[i]), decimals=3), 
@@ -532,50 +552,60 @@ def results(miscs):
                 line=str(args.offset+1+i)+'   error in final grompp most likely'
             result_write.write(line+'\n')
     backup()
-            
+
+
 def pull_concat(window):
-        files_range, time, pull = [], [], []
         if args.current:
-            xvg_loc = './'
+            xvg_loc = args.win_dir
         else:
             xvg_loc = args.win_dir+'/window_'+str(window)+'/'
 
         if os.path.exists(xvg_loc):
-            for filename in os.listdir(xvg_loc):
-                if filename.endswith('.xvg') and 'pullf' in filename:
-                    if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
-                        files_range.append(filename)
-
-
+            files_range = get_file_range(xvg_loc, window)
             if len(files_range) == 1:
-                xvgs=len(files_range)
-                file_copy_and_check('cp '+xvg_loc+files_range[0], 'window_'+str(window)+'_pullf_com.xvg')     
+                os.system('cp '+xvg_loc+files_range[0]+' window_'+str(window)+'_pullf_com.xvg')     
+                return [window, len(files_range)]
             elif len(files_range) >= 2: 
-                xvgs=len(files_range)
-                for x in range(len(files_range)):
-                    for line in open(xvg_loc+files_range[x], 'r').readlines():
-                        if not line[0] in ['#', '@']:
-                            if len(line) > 0 and len(line.split()) ==2:
-                                try:
-                                    time.append(float(line.split()[0]))
-                                    pull.append(float(line.split()[1]))
-                                except:
-                                    break
+                time, pull = read_in_pullf_files(xvg_loc,files_range)
                 if len(time) > 0:
-                    time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
-                    em = open('window_'+str(window)+'_pullf_com.xvg','w')
-                    for j in range(len(time_ord)):
-                        em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+                    write_concat_pullf(window, time, pull)
+                os.system('cp '+xvg_loc+'window_'+str(window)+'.tpr'+' window_'+str(window)+'.tpr')
+                return [window, len(files_range)]                
             else:
-                xvgs=len(files_range)
-            file_copy_and_check('cp '+xvg_loc+'window_'+str(window)+'.tpr', 'window_'+str(window)+'.tpr')
-            return [window, xvgs]
+                return [window, 'MISSING']
         else:
             return [window, 'MISSING']
 
+def get_file_range(xvg_loc, window):
+    files_range = []
+    for filename in os.listdir(xvg_loc):
+        if filename.endswith('.xvg') and 'pullf' in filename:
+            if 'window_'+str(window)+'.' in filename or 'window_'+str(window)+'_' in filename and not '_com' in filename:
+                files_range.append(filename)
+    return files_range
+
+def read_in_pullf_files(xvg_loc,files_range):
+    time, pull = [], []
+    for part in range(len(files_range)):
+        for line in open(xvg_loc+files_range[part], 'r').readlines():
+            if not line[0] in ['#', '@']:
+                if len(line) > 0 and len(line.split()) == 2:
+                    try:
+                        time.append(float(line.split()[0]))
+                        pull.append(float(line.split()[1]))
+                    except:
+                        break
+    return time, pull 
+
+def write_concat_pullf(window, time, pull):
+    time_ord, pull_ord = (list(t) for t in zip(*sorted(zip(time, pull))))
+    em = open('window_'+str(window)+'_pullf_com.xvg','w')
+    for j in range(len(time_ord)):
+        em.write(str(time_ord[j])+'\t'+str(pull_ord[j])+'\n')
+
 def run_wham():
     print('Now running wham\n')
-    if args.core != '0':
+    if int(args.core) > mp.cpu_count():
         args.core = str(int(ask_number('what core would you like to run this on 0-11: ')))
     if len(args.pmf) == 1:
         args.pmf = args.pmf[0]
@@ -585,7 +615,7 @@ def run_wham():
         trim = ' -e '+args.te
     else:
         trim = ''
-    gromacs(['taskset --cpu-list '+args.core+' '+args.gmx+' wham -if en.dat -it tpr.dat -temp 310 -bsres '+args.pmf+' -nBootstrap '+args.boot+' -bins '+str(args.bins)+' -b '+args.ts+trim])
+    gromacs(['taskset --cpu-list '+args.core+' '+args.gmx+' wham -if '+args.en_list+' -it '+args.tpr_list+' -temp '+args.temp+' -hist '+args.hist+' -bsres '+args.pmf+' -nBootstrap '+args.boot+' -bins '+str(args.bins)+' -b '+args.ts+trim])
 
 
 if __name__ == '__main__':
@@ -613,8 +643,11 @@ if __name__ == '__main__':
     parser.add_argument('-ts', help='time start (equilibration)',metavar='5', type=str, default='0')
     parser.add_argument('-te', help='time end (equilibration)',metavar='5', type=str, default='0')
     parser.add_argument('-boot', help='number of bootstraps to run',metavar='5', type=str, default='1')
-    parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*')
-    parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str)
+    parser.add_argument('-pmf', help='location of pmf ',metavar='bsres.xvg',type=str, nargs='*', default=['bsres.xvg'])
+    parser.add_argument('-hist', help='location of histogram and name if used with wham',metavar='histo.xvg',type=str, default='histo.xvg')
+    parser.add_argument('-en_list', help='energy file list',metavar='en.dat',type=str, default='en.dat')
+    parser.add_argument('-tpr_list', help='tpr file list',metavar='tpr.dat',type=str, default='tpr.dat')
+    parser.add_argument('-temp', help='temperature',metavar='310',type=str, default='310')
     parser.add_argument('-tpronly', help='only makes tpr files default (False) requires energy minimised files', action='store_true')
     parser.add_argument('-current', help='to concat in current directory', action='store_true')
     parser.add_argument('-cutoff', help='histogram overlap cutoff for filling and plotting', default=3, type=int)
@@ -626,6 +659,7 @@ if __name__ == '__main__':
     parser.add_argument('-save_plot', help='plot save name',metavar='pmf_plot', type=str)
     parser.add_argument('-save_conv', help='convergence save name',metavar='pmf_conv', type=str)
     parser.add_argument('-ytick', help='pmf Y-axis tick interval', type=int)
+    parser.add_argument('-xtick', help='pmf Y-axis tick interval', type=int, default=1)
     parser.add_argument('-y_range', help='range of Y-axis ',type=float, nargs=2)
     parser.add_argument('-show', help='show interactive plots', action='store_true')
     parser.add_argument('-timestep', help='Convergence timestep', type=int, default=1 )
@@ -645,7 +679,7 @@ if __name__ == '__main__':
 
 
 
-    if args.func != 'plot':
+    if args.func not in ['plot','concat']:
         find_gromacs()
     find_offset()
     
@@ -674,7 +708,8 @@ if __name__ == '__main__':
         check_arguments(['ws', 'we'])
         concatonated = pool.map(pull_concat, [(window) for window in range(args.ws, args.we+1)])          ## makes umbrella windows from minimised frames
         print('\nwindow\ttotal part numbers')
-        for line in np.array(concatonated).sort(axis=0):
+        np.array(concatonated).sort(axis=0)
+        for line in concatonated:
             if line[1] != 0:
                 print(line[0], '\t', line[1])
             else:
