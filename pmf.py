@@ -231,15 +231,29 @@ def make_umbrella_windows(offset_end):
 
     pool = mp.Pool(mp.cpu_count()) 
     m = mp.Manager()
-    q = m.Queue()       
-    if args.min:
-        pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
-        +' -maxwarn 2 -c '+minimised_frames+'window_'+str(i)+'/window_'+str(i)+'.gro -r '+minimised_frames+'/window_'+str(i)+'/window_'+str(i)+'.gro -o '\
-        +umbrella_windows+'window_'+str(i)+'/window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])           ## makes umbrella windows from minimised frames
-    else:   
-        pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
-        +' -maxwarn 2 -c '+frames+'window_'+str(i)+'.pdb -r '+frames+'/window_'+str(i)+'.pdb  -o '+umbrella_windows+'/window_'\
-        +str(i)+'window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])                 ##  ## makes umbrella windows from non-minimised frames
+    q = m.Queue()
+    if args.r is not None:
+        if args.min:
+            ## makes umbrella windows from minimised frames and uses custom restraint file
+            pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+            +' -maxwarn 2 -c '+minimised_frames+'window_'+str(i)+'/window_'+str(i)+'.gro -r '+args.r+' -o '\
+            +umbrella_windows+'window_'+str(i)+'/window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])
+        else:
+            ## makes umbrella windows from non-minimised frames and uses custom restraint file
+            pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+            +' -maxwarn 2 -c '+frames+'window_'+str(i)+'.pdb -r '+args.r+' -o '+umbrella_windows+'/window_'\
+            +str(i)+'window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])
+    else:
+        if args.min:
+            ## makes umbrella windows from minimised frames
+            pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+            +' -maxwarn 2 -c '+minimised_frames+'window_'+str(i)+'/window_'+str(i)+'.gro -r '+frames+'/window_'+str(i)+'.pdb -o '\
+            +umbrella_windows+'window_'+str(i)+'/window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])
+        else:
+            ## makes umbrella windows from non-minimised frames
+            pool_process = pool.map_async(gromacs, [(args.gmx+' grompp -po '+setup_files+'/md_out-'+str(i)+' -f '+args.mdp+' -p '+args.p+' -n '+args.n\
+            +' -maxwarn 2 -c '+frames+'window_'+str(i)+'.pdb -r '+frames+'/window_'+str(i)+'.pdb -o '+umbrella_windows+'/window_'\
+            +str(i)+'window_'+str(i), i, q) for i in range(args.offset+1, offset_end+1)])
     while not pool_process.ready():
         report_complete('GROMPP', q.qsize(), offset_end-args.offset)
         print('                                                                       ', end='\r')
@@ -631,6 +645,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', help='structure file for setup (use the pull.tpr)',metavar='pull.tpr',type=str)
     parser.add_argument('-n', help='index file for the system',metavar='index.ndx', type=str)
     parser.add_argument('-p', help='topology file',metavar='topol.top', type=str)
+    parser.add_argument('-r', help='structure file for user-defined position restraints (use with caution)', metavar='restraint.gro', type=str, default=None)
     parser.add_argument('-pull', help='pull file for setup',metavar='pullx.xvg',type=str)
     parser.add_argument('-offset', help='window offset',metavar='5',type=int, default=0)
     parser.add_argument('-tpr', help='do not make tpr files', action='store_false')
