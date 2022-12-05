@@ -44,7 +44,8 @@ Available flags for use.
       -f (.xtc)         
       -s (.tpr)          
       -n (.ndx)          
-      -p (.top)          
+      -p (.top)
+      -r (.gro/.pdb)          
       -pull (.xvg)       
       -offset (int)      
       -tpr              
